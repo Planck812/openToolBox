@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "open-toolbox",
+  "version": "0.1.0",
+  "identifier": "com.open-toolbox.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/fetch-tessdata.mjs && npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node scripts/fetch-tessdata.mjs && npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "open-toolbox",
+        "width": 1600,
+        "height": 800,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' asset: http://asset.localhost https://asset.localhost file: data: blob: http://pin-image.localhost http://frame-image.localhost http://scroll-image.localhost; img-src 'self' asset: http://asset.localhost https://asset.localhost file: data: blob: http://pin-image.localhost http://frame-image.localhost http://scroll-image.localhost; connect-src 'self' ipc: http://ipc.localhost http://frame-image.localhost http://scroll-image.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$APPLOCALDATA/**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "tessdata/chi_sim.traineddata": "tessdata/chi_sim.traineddata",
+      "tessdata/chi_sim_vert.traineddata": "tessdata/chi_sim_vert.traineddata",
+      "tessdata/eng.traineddata": "tessdata/eng.traineddata",
+      "tessdata_fast/chi_sim.traineddata": "tessdata_fast/chi_sim.traineddata",
+      "tessdata_fast/eng.traineddata": "tessdata_fast/eng.traineddata",
+      "resources/sedentary-reminder.mp4": "sedentary-reminder.mp4"
+    }
+  }
+}

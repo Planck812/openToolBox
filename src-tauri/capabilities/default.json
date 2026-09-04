@@ -1,0 +1,112 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "log:default",
+    "core:window:allow-close",
+    "core:window:allow-create",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-is-always-on-top",
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-decorations",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
+    "core:webview:allow-create-webview-window",
+    "opener:default",
+    "opener:allow-open-path",
+    "opener:allow-reveal-item-in-dir",
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-image",
+    "clipboard-manager:allow-write-text",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "store:default",
+    "fs:allow-home-read",
+    "fs:allow-home-write",
+    "fs:scope-appdata-recursive",
+    "fs:allow-read-file",
+    "fs:allow-read-dir",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "curl",
+          "cmd": "C:\\\\Windows\\\\System32\\\\curl.exe",
+          "args": [
+            "-s",
+            "-S",
+            "-i",
+            "--compressed",
+            { "validator": "(?:-L|--no-location)" },
+            { "validator": "(?:-k|-q)" },
+            "-X",
+            { "validator": "[!#$%&'*+\\-.^_`|~0-9A-Za-z]+" },
+            "-H",
+            { "validator": "[\\s\\S]*" },
+            { "validator": "(?:--data-raw|--limit-rate)" },
+            { "validator": "[\\s\\S]*" },
+            { "validator": "https?://[\\s\\S]*" }
+          ]
+        },
+        {
+          "name": "netstat",
+          "cmd": "C:\\\\Windows\\\\System32\\\\netstat.exe",
+          "args": [
+            "-ano",
+            "-p",
+            { "validator": "(tcp|udp)" }
+          ]
+        },
+        {
+          "name": "taskkill",
+          "cmd": "C:\\\\Windows\\\\System32\\\\taskkill.exe",
+          "args": [
+            "/F",
+            "/PID",
+            { "validator": "\\d+" }
+          ]
+        },
+        {
+          "name": "tasklist",
+          "cmd": "C:\\\\Windows\\\\System32\\\\tasklist.exe",
+          "args": [
+            "/FI",
+            { "validator": "PID eq \\d+" },
+            "/FO",
+            "CSV",
+            "/NH"
+          ]
+        },
+        {
+          "name": "wmic",
+          "cmd": "C:\\\\Windows\\\\System32\\\\wbem\\\\WMIC.exe",
+          "args": [
+            "process",
+            "where",
+            { "validator": "processid=\\d+" },
+            "call",
+            "terminate"
+          ]
+        }
+      ]
+    }
+  ]
+}

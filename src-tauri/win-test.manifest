@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Windows 测试目标专用 manifest（仅经 build.rs 的 cargo:rustc-link-arg-tests 注入到
+  cargo test 生成的测试可执行文件）。
+
+  背景：主应用 exe 的 manifest 由 tauri-build 生成并嵌入（含 common-controls v6 依赖），
+  但 Rust 测试 harness 二进制不带 manifest。当测试链接了 tauri 运行时（例如 tauri-specta
+  的 collect_commands! 把命令函数连带 wry/tao 拉进测试二进制），运行时会按名导入
+  comctl32.dll 的 v6 函数（TaskDialogIndirect 等），而系统默认加载的 comctl32 是 v5.82
+  （不含这些导出），导致 STATUS_ENTRYPOINT_NOT_FOUND (0xC0000139) 启动失败。
+  本 manifest 声明 common-controls v6 依赖，使测试二进制与主应用一致地激活 v6。
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
+    </dependentAssembly>
+  </dependency>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true</dpiAware>
+    </windowsSettings>
+  </application>
+</assembly>

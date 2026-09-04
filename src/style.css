@@ -1,0 +1,614 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .resizable-panel-divider {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    bottom: 0;
+    z-index: 10;
+    display: none;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  @media (min-width: 1024px) {
+    .resizable-panel-divider {
+      display: block;
+    }
+  }
+}
+
+/* ================================================================
+   科技风设计系统 (Tech Design System)
+   ----------------------------------------------------------------
+   结构:
+   1. :root        — 亮色模式默认变量 + 默认皮肤 (aurora) 强调色
+   2. .dark        — 暗色模式覆盖 (表面/文字/背景等全部跟随切换)
+   3. [data-skin]  — 11 套皮肤只覆盖强调色，亮/暗模式自动适配
+   4. Base styles  — 基础元素样式
+   5. Components   — 科技风工具类 (网格背景/玻璃态/霓虹光晕/HUD)
+   ================================================================ */
+
+@layer base {
+  :root {
+    /* —— Tailwind 基础色（亮色） —— */
+    --background: 204 40% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 90%;
+    --input: 214 32% 90%;
+    --ring: 199 89% 48%;
+    --radius: 0.5rem;
+
+    /* —— 默认皮肤: aurora 极光蓝绿 —— */
+    --skin-accent: #06b6d4;
+    --skin-accent-2: #14b8a6;
+    --skin-accent-3: #0f172a;
+    --skin-accent-soft: rgba(6, 182, 212, 0.12);
+    --skin-accent-rgb: 6 182 212;
+    --skin-accent-glow: rgba(6, 182, 212, 0.45);
+
+    /* —— 亮色表面 —— */
+    --skin-surface: #ffffff;
+    --skin-surface-soft: rgba(255, 255, 255, 0.82);
+    --skin-surface-elevated: #f8fbff;
+    --skin-border: rgba(15, 23, 42, 0.1);
+    --skin-border-strong: rgba(15, 23, 42, 0.18);
+
+    /* —— 亮色文字 —— */
+    --skin-text-strong: #0b1426;
+    --skin-text-main: #1e293b;
+    --skin-text-muted: #64748b;
+    --skin-text-subtle: #94a3b8;
+
+    /* —— 亮色外壳背景 —— */
+    --skin-shell-bg:
+      radial-gradient(circle at 12% 0%, rgba(var(--skin-accent-rgb) / 0.1), transparent 32%),
+      radial-gradient(circle at 88% 10%, rgba(var(--skin-accent-rgb) / 0.06), transparent 30%),
+      linear-gradient(180deg, #f7fbfd 0%, #f2f7fc 48%, #ffffff 100%);
+
+    /* —— 亮色面板 —— */
+    --skin-panel-bg: rgba(255, 255, 255, 0.94);
+    --skin-panel-bg-soft: rgba(255, 255, 255, 0.72);
+    --skin-panel-border: rgba(15, 23, 42, 0.08);
+
+    /* —— 侧边栏 —— */
+    --skin-sidebar-bg: rgba(255, 255, 255, 0.6);
+    --skin-sidebar-active-bg: linear-gradient(90deg, rgba(var(--skin-accent-rgb) / 0.18), rgba(var(--skin-accent-rgb) / 0.04));
+    --skin-sidebar-active-text: var(--skin-accent);
+
+    /* —— 光晕 —— */
+    --skin-glow: 0 18px 42px rgba(var(--skin-accent-rgb) / 0.16), 0 4px 12px rgba(15, 23, 42, 0.05);
+    --skin-glow-strong: 0 0 28px rgba(var(--skin-accent-rgb) / 0.4), 0 0 8px rgba(var(--skin-accent-rgb) / 0.3);
+    --skin-glow-soft: 0 8px 24px rgba(var(--skin-accent-rgb) / 0.1);
+
+    /* —— 科技纹理 —— */
+    --skin-grid-color: rgba(var(--skin-accent-rgb) / 0.045);
+    --skin-grid-size: 36px;
+    --skin-scan-line: rgba(var(--skin-accent-rgb) / 0.04);
+    --skin-noise-opacity: 0.02;
+
+    /* —— 标题栏 —— */
+    --skin-titlebar-bg:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.94)),
+      radial-gradient(circle at 18% 0%, rgba(var(--skin-accent-rgb) / 0.14), transparent 28%);
+
+    /* —— 应用背景叠加 —— */
+    --skin-app-bg-overlay: linear-gradient(rgba(248, 250, 252, 0.2), rgba(241, 245, 249, 0.28));
+
+    /* —— 窗口控制 —— */
+    --skin-window-text: #334155;
+    --skin-window-hover-bg: rgba(var(--skin-accent-rgb) / 0.1);
+    --skin-window-hover-text: var(--skin-accent);
+
+    /* —— 玻璃态 —— */
+    --skin-glass-bg: rgba(255, 255, 255, 0.65);
+    --skin-glass-border: rgba(255, 255, 255, 0.6);
+    --skin-glass-blur: 20px;
+
+    /* —— HUD —— */
+    --skin-hud-line: rgba(var(--skin-accent-rgb) / 0.25);
+    --skin-hud-corner: var(--skin-accent);
+    --skin-neon-text: var(--skin-accent);
+
+    /* —— 渐变边框 —— */
+    --skin-gradient-border: linear-gradient(135deg, rgba(var(--skin-accent-rgb) / 0.5), rgba(var(--skin-accent-rgb) / 0.1) 50%, rgba(var(--skin-accent-rgb) / 0.3));
+  }
+
+  .dark {
+    /* —— Tailwind 基础色（暗色） —— */
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 7%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 7%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 13%;
+    --muted-foreground: 215 20% 62%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 199 89% 48%;
+
+    /* —— 暗色表面 —— */
+    --skin-surface: rgba(15, 23, 42, 0.88);
+    --skin-surface-soft: rgba(15, 23, 42, 0.68);
+    --skin-surface-elevated: rgba(30, 41, 59, 0.85);
+    --skin-border: rgba(148, 163, 184, 0.14);
+    --skin-border-strong: rgba(148, 163, 184, 0.26);
+
+    /* —— 暗色文字 —— */
+    --skin-text-strong: #f1f5f9;
+    --skin-text-main: #e2e8f0;
+    --skin-text-muted: #94a3b8;
+    --skin-text-subtle: #64748b;
+
+    /* —— 暗色外壳背景（科技深空感） —— */
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(var(--skin-accent-rgb) / 0.2), transparent 35%),
+      radial-gradient(ellipse at 88% 8%, rgba(var(--skin-accent-rgb) / 0.12), transparent 32%),
+      linear-gradient(180deg, #060d1a 0%, #081324 48%, #0a1830 100%);
+
+    /* —— 暗色面板（玻璃态） —— */
+    --skin-panel-bg: rgba(15, 23, 42, 0.82);
+    --skin-panel-bg-soft: rgba(15, 23, 42, 0.6);
+    --skin-panel-border: rgba(148, 163, 184, 0.12);
+
+    /* —— 暗色侧边栏 —— */
+    --skin-sidebar-bg: rgba(8, 15, 28, 0.72);
+    --skin-sidebar-active-bg: linear-gradient(90deg, rgba(var(--skin-accent-rgb) / 0.26), rgba(var(--skin-accent-rgb) / 0.06));
+    --skin-sidebar-active-text: var(--skin-accent);
+
+    /* —— 暗色光晕（更强霓虹感） —— */
+    --skin-glow: 0 20px 48px rgba(var(--skin-accent-rgb) / 0.22), 0 0 1px rgba(var(--skin-accent-rgb) / 0.3);
+    --skin-glow-strong: 0 0 32px rgba(var(--skin-accent-rgb) / 0.55), 0 0 12px rgba(var(--skin-accent-rgb) / 0.4), 0 0 4px rgba(var(--skin-accent-rgb) / 0.6);
+    --skin-glow-soft: 0 8px 28px rgba(var(--skin-accent-rgb) / 0.14);
+
+    /* —— 暗色科技纹理 —— */
+    --skin-grid-color: rgba(var(--skin-accent-rgb) / 0.06);
+    --skin-scan-line: rgba(var(--skin-accent-rgb) / 0.06);
+    --skin-noise-opacity: 0.03;
+
+    /* —— 暗色标题栏 —— */
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(var(--skin-accent-rgb) / 0.28), transparent 34%),
+      linear-gradient(90deg, rgba(6, 13, 26, 0.98), rgba(10, 22, 40, 0.98) 54%, rgba(14, 30, 56, 0.98));
+
+    /* —— 暗色应用背景叠加 —— */
+    --skin-app-bg-overlay: linear-gradient(rgba(6, 13, 26, 0.35), rgba(8, 17, 33, 0.42));
+
+    /* —— 暗色窗口控制 —— */
+    --skin-window-text: #cbd5e1;
+    --skin-window-hover-bg: rgba(var(--skin-accent-rgb) / 0.18);
+    --skin-window-hover-text: var(--skin-accent);
+
+    /* —— 暗色玻璃态 —— */
+    --skin-glass-bg: rgba(15, 23, 42, 0.55);
+    --skin-glass-border: rgba(148, 163, 184, 0.14);
+
+    /* —— 暗色 HUD —— */
+    --skin-hud-line: rgba(var(--skin-accent-rgb) / 0.35);
+    --skin-neon-text: var(--skin-accent);
+    --skin-gradient-border: linear-gradient(135deg, rgba(var(--skin-accent-rgb) / 0.7), rgba(var(--skin-accent-rgb) / 0.15) 50%, rgba(var(--skin-accent-rgb) / 0.5));
+  }
+
+  /* —— 兼容旧变量名（让现有组件平滑过渡） —— */
+  :root {
+    --skin-panel-dark: var(--skin-panel-bg);
+    --skin-panel-dark-soft: var(--skin-panel-bg-soft);
+    --skin-shell-bg-dark: var(--skin-shell-bg);
+    --skin-titlebar-bg-dark: var(--skin-titlebar-bg);
+    --skin-app-bg-overlay-dark: var(--skin-app-bg-overlay);
+  }
+
+  /* ================================================================
+     11 套皮肤 — 只覆盖强调色，亮/暗模式自动通过 .dark 适配
+     ================================================================ */
+
+  :root[data-skin='aurora'] {
+    --skin-accent: #06b6d4;
+    --skin-accent-2: #14b8a6;
+    --skin-accent-3: #0f172a;
+    --skin-accent-soft: rgba(6, 182, 212, 0.12);
+    --skin-accent-rgb: 6 182 212;
+    --skin-accent-glow: rgba(6, 182, 212, 0.45);
+  }
+
+  :root[data-skin='sky-glass'] {
+    --skin-accent: #2f80ff;
+    --skin-accent-2: #6bb7ff;
+    --skin-accent-3: #173b66;
+    --skin-accent-soft: rgba(47, 128, 255, 0.12);
+    --skin-accent-rgb: 47 128 255;
+    --skin-accent-glow: rgba(47, 128, 255, 0.45);
+  }
+
+  :root[data-skin='mint-tech'] {
+    --skin-accent: #10b981;
+    --skin-accent-2: #06d6a0;
+    --skin-accent-3: #22d3ee;
+    --skin-accent-soft: rgba(16, 185, 129, 0.12);
+    --skin-accent-rgb: 16 185 129;
+    --skin-accent-glow: rgba(16, 185, 129, 0.45);
+  }
+
+  :root[data-skin='glow-purple'] {
+    --skin-accent: #6366f1;
+    --skin-accent-2: #a78bfa;
+    --skin-accent-3: #8b5cf6;
+    --skin-accent-soft: rgba(99, 102, 241, 0.12);
+    --skin-accent-rgb: 99 102 241;
+    --skin-accent-glow: rgba(99, 102, 241, 0.5);
+  }
+
+  :root[data-skin='coral-pop'] {
+    --skin-accent: #ff6b6b;
+    --skin-accent-2: #ff9f7f;
+    --skin-accent-3: #ff7b87;
+    --skin-accent-soft: rgba(255, 107, 107, 0.12);
+    --skin-accent-rgb: 255 107 107;
+    --skin-accent-glow: rgba(255, 107, 107, 0.45);
+  }
+
+  :root[data-skin='sunset-orange'] {
+    --skin-accent: #fb923c;
+    --skin-accent-2: #f97316;
+    --skin-accent-3: #fbbf24;
+    --skin-accent-soft: rgba(251, 146, 60, 0.12);
+    --skin-accent-rgb: 251 146 60;
+    --skin-accent-glow: rgba(251, 146, 60, 0.45);
+  }
+
+  :root[data-skin='lime-cyan'] {
+    --skin-accent: #84cc16;
+    --skin-accent-2: #e3f53c;
+    --skin-accent-3: #22c55e;
+    --skin-accent-soft: rgba(132, 204, 22, 0.12);
+    --skin-accent-rgb: 132 204 22;
+    --skin-accent-glow: rgba(132, 204, 22, 0.45);
+  }
+
+  :root[data-skin='sakura-mist'] {
+    --skin-accent: #f472b6;
+    --skin-accent-2: #fb7185;
+    --skin-accent-3: #d946ef;
+    --skin-accent-soft: rgba(244, 114, 182, 0.12);
+    --skin-accent-rgb: 244 114 182;
+    --skin-accent-glow: rgba(244, 114, 182, 0.45);
+  }
+
+  :root[data-skin='desert-khaki'] {
+    --skin-accent: #d4a373;
+    --skin-accent-2: #c26e3d;
+    --skin-accent-3: #8b5e3c;
+    --skin-accent-soft: rgba(212, 163, 115, 0.14);
+    --skin-accent-rgb: 212 163 115;
+    --skin-accent-glow: rgba(212, 163, 115, 0.4);
+  }
+
+  :root[data-skin='deep-sea'] {
+    --skin-accent: #22d3ee;
+    --skin-accent-2: #38bdf8;
+    --skin-accent-3: #94a3b8;
+    --skin-accent-soft: rgba(34, 211, 238, 0.12);
+    --skin-accent-rgb: 34 211 238;
+    --skin-accent-glow: rgba(34, 211, 238, 0.5);
+  }
+
+  :root[data-skin='deep-sea'].dark {
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(34, 211, 238, 0.22), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(56, 189, 248, 0.14), transparent 32%),
+      linear-gradient(180deg, #030712 0%, #051028 48%, #07182f 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(34, 211, 238, 0.3), transparent 36%),
+      linear-gradient(90deg, rgba(3, 7, 18, 0.98), rgba(5, 16, 40, 0.98) 54%, rgba(7, 24, 47, 0.98));
+  }
+
+  :root[data-skin='black-gold'] {
+    --skin-accent: #f2c94c;
+    --skin-accent-2: #b08d57;
+    --skin-accent-3: #f5f5f4;
+    --skin-accent-soft: rgba(242, 201, 76, 0.12);
+    --skin-accent-rgb: 242 201 76;
+    --skin-accent-glow: rgba(242, 201, 76, 0.45);
+  }
+
+  :root[data-skin='black-gold'].dark {
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(242, 201, 76, 0.16), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(176, 141, 87, 0.1), transparent 32%),
+      linear-gradient(180deg, #050505 0%, #0a0a0a 48%, #121212 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(242, 201, 76, 0.22), transparent 36%),
+      linear-gradient(90deg, rgba(5, 5, 5, 0.98), rgba(10, 10, 10, 0.98) 54%, rgba(18, 18, 18, 0.98));
+    --skin-panel-bg: rgba(18, 18, 18, 0.82);
+    --skin-panel-bg-soft: rgba(18, 18, 18, 0.6);
+    --skin-panel-border: rgba(245, 245, 244, 0.1);
+    --skin-border: rgba(245, 245, 244, 0.1);
+    --skin-border-strong: rgba(245, 245, 244, 0.2);
+    --skin-text-strong: #fff7da;
+    --skin-text-main: #f5f5f4;
+    --skin-text-muted: #d6c4a1;
+    --skin-text-subtle: #a8a29e;
+    --skin-window-text: #d6c4a1;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Microsoft YaHei UI", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
+  }
+
+  html {
+    background: var(--skin-shell-bg);
+    background-attachment: fixed;
+  }
+
+  /* 科技风网格底纹（全局） */
+  html::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--skin-grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--skin-grid-color) 1px, transparent 1px);
+    background-size: var(--skin-grid-size) var(--skin-grid-size);
+  }
+
+  /* 滚动条科技风 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(var(--skin-accent-rgb) / 0.3);
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--skin-accent-rgb) / 0.5);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--skin-accent-rgb) / 0.3) transparent;
+  }
+
+  /* 文本选中色 */
+  ::selection {
+    background: rgba(var(--skin-accent-rgb) / 0.25);
+    color: var(--skin-text-strong);
+  }
+}
+
+@layer components {
+  /* ================================================================
+     科技风工具类
+     ================================================================ */
+
+  /* 科技玻璃态面板 */
+  .tech-glass {
+    background: var(--skin-glass-bg);
+    backdrop-filter: blur(var(--skin-glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--skin-glass-blur)) saturate(180%);
+    border: 1px solid var(--skin-glass-border);
+  }
+
+  /* 科技网格背景 */
+  .tech-grid {
+    background-image:
+      linear-gradient(var(--skin-grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--skin-grid-color) 1px, transparent 1px);
+    background-size: var(--skin-grid-size) var(--skin-grid-size);
+  }
+
+  /* 霓虹光晕 */
+  .tech-glow {
+    box-shadow: var(--skin-glow);
+  }
+
+  .tech-glow-strong {
+    box-shadow: var(--skin-glow-strong);
+  }
+
+  .tech-glow-soft {
+    box-shadow: var(--skin-glow-soft);
+  }
+
+  /* 霓虹文字 */
+  .tech-neon {
+    color: var(--skin-neon-text);
+    text-shadow: 0 0 12px rgba(var(--skin-accent-rgb) / 0.5), 0 0 4px rgba(var(--skin-accent-rgb) / 0.3);
+  }
+
+  .tech-neon-strong {
+    color: var(--skin-neon-text);
+    text-shadow: 0 0 20px rgba(var(--skin-accent-rgb) / 0.7), 0 0 8px rgba(var(--skin-accent-rgb) / 0.5), 0 0 2px rgba(var(--skin-accent-rgb) / 0.8);
+  }
+
+  /* 渐变边框 */
+  .tech-border-gradient {
+    position: relative;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .tech-border-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--skin-gradient-border);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* HUD 角标 */
+  .tech-hud-corners {
+    position: relative;
+  }
+
+  .tech-hud-corners::before,
+  .tech-hud-corners::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--skin-hud-corner);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .tech-hud-corners::before {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+  }
+
+  .tech-hud-corners::after {
+    bottom: -1px;
+    right: -1px;
+    border-left: none;
+    border-top: none;
+    border-bottom-right-radius: 4px;
+  }
+
+  /* 科技面板（标准） */
+  .tech-panel {
+    background: var(--skin-panel-bg);
+    border: 1px solid var(--skin-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: var(--skin-glow);
+  }
+
+  /* 科技强调按钮 */
+  .tech-btn-accent {
+    background: linear-gradient(135deg, var(--skin-accent), var(--skin-accent-2));
+    color: white;
+    border: 1px solid rgba(var(--skin-accent-rgb) / 0.5);
+    box-shadow: 0 4px 14px rgba(var(--skin-accent-rgb) / 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+  }
+
+  .tech-btn-accent:hover {
+    box-shadow: 0 6px 20px rgba(var(--skin-accent-rgb) / 0.5), 0 0 12px rgba(var(--skin-accent-rgb) / 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+
+  /* 科技输入框 */
+  .tech-input {
+    background: var(--skin-panel-bg);
+    border: 1px solid var(--skin-border);
+    color: var(--skin-text-main);
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+  }
+
+  .tech-input:focus {
+    border-color: var(--skin-accent);
+    box-shadow: 0 0 0 3px rgba(var(--skin-accent-rgb) / 0.15), 0 0 16px rgba(var(--skin-accent-rgb) / 0.2);
+    outline: none;
+  }
+
+  /* 科技卡片悬停 */
+  .tech-card-hover {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .tech-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(var(--skin-accent-rgb) / 0.4);
+    box-shadow: var(--skin-glow), 0 0 0 1px rgba(var(--skin-accent-rgb) / 0.15);
+  }
+
+  /* 科技分割线 */
+  .tech-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--skin-hud-line), transparent);
+  }
+
+  /* 科技标签 */
+  .tech-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(var(--skin-accent-rgb) / 0.12);
+    color: var(--skin-accent);
+    border: 1px solid rgba(var(--skin-accent-rgb) / 0.2);
+  }
+
+  /* 科技脉冲动画 */
+  .tech-pulse {
+    animation: tech-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes tech-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(var(--skin-accent-rgb) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(var(--skin-accent-rgb) / 0);
+    }
+  }
+
+  /* 科技闪烁动画 */
+  .tech-flicker {
+    animation: tech-flicker 3s linear infinite;
+  }
+
+  @keyframes tech-flicker {
+    0%, 100% { opacity: 1; }
+    97% { opacity: 1; }
+    98% { opacity: 0.6; }
+    99% { opacity: 1; }
+  }
+}

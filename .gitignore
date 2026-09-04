@@ -1,0 +1,50 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 本地调试与桌面开发环境文件
+.claude/
+testLog.txt
+tmp_check.js
+rustup-init.exe
+spawn_test.cjs
+tests/desktop/artifacts/
+
+# OCR 语言包（构建时由 scripts/fetch-tessdata.mjs 自动下载，不进版本库）
+src-tauri/tessdata/
+src-tauri/tessdata_fast/
+
+# Trellis 个人日志/研究目录（框架随仓库开源，workspace 个人数据不进版本库）
+.trellis/workspace/
+.trellis/tasks/
+
+# Codex 个人配置与开发截图（不作为开源内容）
+.codex/
+
+# 个人开发日志/验证记录
+operations-log.md
+verification.md
+
+# 本地发布构建物
+build-output*/

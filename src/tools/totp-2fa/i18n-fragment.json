@@ -1,0 +1,43 @@
+{
+  "tools": {
+    "totp_2fa": {
+      "name": "2FA / TOTP",
+      "description": "基于 Base32 密钥或 otpauth URI 生成与校验 TOTP 动态验证码",
+      "title": "2FA / TOTP",
+      "subtitle": "生成、刷新并校验基于时间的一次性密码",
+      "secret_label": "密钥 (Base32)",
+      "secret_placeholder": "输入 Base32 密钥，或粘贴 otpauth:// URI",
+      "uri_label": "otpauth URI（可选）",
+      "uri_placeholder": "otpauth://totp/Issuer:account?secret=...&issuer=...",
+      "parse_uri_btn": "解析 URI",
+      "algorithm_label": "算法",
+      "digits_label": "位数",
+      "period_label": "周期（秒）",
+      "issuer_label": "发行方",
+      "account_label": "账户",
+      "current_code": "当前验证码",
+      "remaining": "剩余 {seconds} 秒",
+      "refresh_hint": "每秒自动刷新",
+      "copy_btn": "复制验证码",
+      "copy_success": "验证码已复制",
+      "copy_failed": "复制失败",
+      "empty_code": "暂无验证码可复制",
+      "verify_label": "手动校验",
+      "verify_placeholder": "输入 6–8 位验证码",
+      "verify_btn": "校验",
+      "verify_match": "匹配成功（窗口偏移 {delta}）",
+      "verify_mismatch": "不匹配（已检查当前及前后窗口）",
+      "verify_empty": "请先输入验证码",
+      "secret_invalid": "密钥无效，请检查 Base32 内容",
+      "uri_invalid": "URI 解析失败",
+      "uri_parsed": "URI 已解析",
+      "status_idle": "输入密钥后即可生成 TOTP",
+      "status_ready": "已就绪",
+      "status_error": "生成失败",
+      "meta_period": "周期",
+      "meta_algorithm": "算法",
+      "meta_digits": "位数",
+      "clear_btn": "清空"
+    }
+  }
+}

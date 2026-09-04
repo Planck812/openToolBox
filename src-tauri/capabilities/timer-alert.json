@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "timer-alert",
+  "description": "Capability for timer alert popup windows",
+  "windows": ["timer-alert-*"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:allow-close"
+  ]
+}

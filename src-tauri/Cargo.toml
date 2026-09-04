@@ -1,0 +1,59 @@
+[package]
+name = "open-toolbox"
+version = "0.1.0"
+description = "Open-Toolbox: 跨平台桌面效率工具箱（Tauri 2 + Vue 3）"
+authors = ["Planck812"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "open_toolbox_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset", "macos-private-api", "specta"] }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-store = "2"
+tauri-plugin-log = "2.8"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2.4.0"
+tauri-plugin-autostart = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+chrono = "0.4"
+xcap = "0.7"
+tesseract-rs = { version = "0.4", features = ["build-tesseract"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp"] }
+arboard = "3"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+fs2 = "0.4"
+http = "1"
+keyring = "2"
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
+log = "0.4"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
+specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }
+specta-typescript = "0.0.12"
+
+[dev-dependencies]
+tempfile = "3"
+
+[target."cfg(any(target_os = \"macos\", target_os = \"linux\"))".dependencies]
+libc = "0.2"
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.61.3", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_HiDpi", "Win32_Foundation", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Performance", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Accessibility"] }
+winreg = "0.56.0"
