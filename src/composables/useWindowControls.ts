@@ -100,7 +100,10 @@ export function useWindowControls() {
    */
   const toggleWindowMaximize = async () => {
     const appWindow = getTauriWindow();
-    if (!appWindow) return;
+    if (!appWindow) {
+      isWindowMaximized.value = !isWindowMaximized.value;
+      return;
+    }
 
     await appWindow.toggleMaximize();
     window.setTimeout(() => {
@@ -113,10 +116,10 @@ export function useWindowControls() {
    */
   const toggleWindowAlwaysOnTop = async () => {
     const appWindow = getTauriWindow();
-    if (!appWindow) return;
-
     const nextValue = !isWindowAlwaysOnTop.value;
-    await appWindow.setAlwaysOnTop(nextValue);
+    if (appWindow) {
+      await appWindow.setAlwaysOnTop(nextValue);
+    }
     isWindowAlwaysOnTop.value = nextValue;
     store.showToast(nextValue ? t('app.window_pinned') : t('app.window_unpinned'), { type: 'success' });
   };

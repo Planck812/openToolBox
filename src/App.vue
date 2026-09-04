@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/app';
 import { storeToRefs } from 'pinia';
 import { applyThemeMode, getThemeSkin } from '@/lib/theme';
 import { useI18n } from 'vue-i18n';
-import { Maximize2, Minus, Pin, PinOff, Square, X } from 'lucide-vue-next';
+import { Copy, Maximize2, Minus, Pin, PinOff, X } from 'lucide-vue-next';
 import QuickLaunchRoot from '@/components/QuickLaunchRoot.vue';
 import { logToFile } from '@/lib/logger';
 import { useWindowControls } from '@/composables/useWindowControls';
@@ -192,7 +192,7 @@ onUnmounted(() => {
           @dblclick.stop
           @click.stop="toggleWindowMaximize"
         >
-          <Square v-if="isWindowMaximized" class="h-[13px] w-[13px]" />
+          <Copy v-if="isWindowMaximized" class="h-[13px] w-[13px]" />
           <Maximize2 v-else class="h-[13px] w-[13px]" />
         </button>
         <button

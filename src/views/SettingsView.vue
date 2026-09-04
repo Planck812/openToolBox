@@ -236,7 +236,6 @@ const isDarkPreview = (skin?: (typeof THEME_SKINS)[number]) => {
   if (skin) return skin.recommendedMode === 'dark';
   return isDarkThemeList.value;
 };
-const isLightListWithDarkSkin = (skinId: ThemeSkinId) => !isDarkThemeList.value && isDarkSkin(skinId);
 
 /**
  * 将 16 进制颜色转换为 RGB 三元组；解析失败返回 null
