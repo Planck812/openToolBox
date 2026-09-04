@@ -232,7 +232,10 @@ const changeLanguage = (locale: AppLocale) => {
 const activeThemeSkin = computed(() => getThemeSkin(themeSkinId.value));
 const isDarkSkin = (skinId: ThemeSkinId) => getThemeSkin(skinId).recommendedMode === 'dark';
 const isDarkThemeList = computed(() => activeThemeSkin.value.recommendedMode === 'dark' && themeMode.value === 'dark');
-const isDarkPreview = () => isDarkThemeList.value;
+const isDarkPreview = (skin?: (typeof THEME_SKINS)[number]) => {
+  if (skin) return skin.recommendedMode === 'dark';
+  return isDarkThemeList.value;
+};
 const isLightListWithDarkSkin = (skinId: ThemeSkinId) => !isDarkThemeList.value && isDarkSkin(skinId);
 
 /**
@@ -258,34 +261,24 @@ const withAlpha = (color: string, alpha: number, fallback: string) => {
 };
 
 const previewShellStyle = (skin: (typeof THEME_SKINS)[number]) => {
-  if (!isDarkThemeList.value) return {};
+  const isDark = skin.recommendedMode === 'dark';
   return {
-    borderColor: withAlpha(skin.accent, 0.22, 'rgba(148,163,184,0.22)'),
-    background: `linear-gradient(145deg, ${withAlpha(skin.accent, 0.12, 'rgba(59,130,246,0.12)')} 0%, rgba(5,18,43,0.94) 56%, rgba(3,11,30,0.98) 100%)`
+    borderColor: withAlpha(skin.accent, isDark ? 0.35 : 0.22, isDark ? 'rgba(255,255,255,0.15)' : 'rgba(15,23,42,0.12)'),
+    boxShadow: `0 4px 16px ${withAlpha(skin.accent, 0.12, 'rgba(0,0,0,0.06)')}`
   };
 };
 
 const previewSidebarStyle = (skin: (typeof THEME_SKINS)[number]) => {
-  if (!isDarkThemeList.value) {
-    if (isLightListWithDarkSkin(skin.id)) {
-      return { background: '#EAF1F8' };
-    }
-    return { background: skin.panel };
-  }
+  const isDark = skin.recommendedMode === 'dark';
   return {
-    background: `linear-gradient(180deg, ${withAlpha(skin.accent, 0.2, 'rgba(59,130,246,0.2)')} 0%, rgba(11,27,56,0.92) 100%)`
+    background: skin.panel,
+    borderColor: withAlpha(skin.accent, isDark ? 0.25 : 0.15, 'rgba(148,163,184,0.15)')
   };
 };
 
 const previewContentStyle = (skin: (typeof THEME_SKINS)[number]) => {
-  if (!isDarkThemeList.value) {
-    if (isLightListWithDarkSkin(skin.id)) {
-      return { background: '#F8FBFF' };
-    }
-    return { background: skin.background };
-  }
   return {
-    background: `linear-gradient(165deg, rgba(17,34,66,0.92) 0%, ${withAlpha(skin.accent2, 0.08, 'rgba(96,165,250,0.08)')} 100%)`
+    background: skin.background
   };
 };
 
@@ -429,29 +422,29 @@ const disableBackgroundImage = () => {
 
                 <div
                   class="mt-4 overflow-hidden rounded-2xl border skin-preview"
-                  :class="isDarkPreview() ? 'is-dark-preview' : ''"
+                  :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"
                   :style="previewShellStyle(skin)"
                 >
                   <div class="flex h-24">
                     <div
                       class="w-16 border-r px-2 py-2"
-                      :class="isDarkPreview() ? 'is-dark-preview' : ''"
+                      :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"
                       :style="previewSidebarStyle(skin)"
                     >
                       <div class="mb-2 h-2 rounded-full opacity-90" :style="{ background: skin.accent }"></div>
-                      <div class="mb-1 h-2 rounded-full opacity-90 preview-line" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
-                      <div class="h-2 rounded-full opacity-80 preview-line" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
+                      <div class="mb-1 h-2 rounded-full opacity-90 preview-line" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
+                      <div class="h-2 rounded-full opacity-80 preview-line" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
                     </div>
                     <div class="flex-1 px-3 py-3" :style="previewContentStyle(skin)">
-                      <div class="h-3 w-24 rounded-full preview-title-line" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
+                      <div class="h-3 w-24 rounded-full preview-title-line" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
                       <div class="mt-3 flex gap-2">
-                        <div class="h-8 flex-1 rounded-xl shadow-sm preview-card" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
+                        <div class="h-8 flex-1 rounded-xl shadow-sm preview-card" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
                         <div class="h-8 w-8 rounded-full shadow-sm" :style="{ background: skin.accent }"></div>
                       </div>
                       <div class="mt-3 grid grid-cols-3 gap-2">
-                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
-                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
-                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview() ? 'is-dark-preview' : ''"></div>
+                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
+                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
+                        <div class="h-6 rounded-lg shadow-sm preview-card" :class="isDarkPreview(skin) ? 'is-dark-preview' : ''"></div>
                       </div>
                     </div>
                   </div>

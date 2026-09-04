@@ -226,109 +226,595 @@
   }
 
   /* ================================================================
-     11 套皮肤 — 只覆盖强调色，亮/暗模式自动通过 .dark 适配
+     11 套皮肤设计系统 (Elevated Theme Skins)
+     黑金配色 (black-gold) 保持原始满意设计完全不变
+     其余 10 套皮肤全面重构：精调色盘、多层光晕、环境渐变与亮暗专属适配
      ================================================================ */
 
+  /* ----------------------------------------------------------------
+     1. aurora: 极光幻境 (Aurora Borealis)
+     冷翡翠与极光青紫交织，晨曦冷雾与极地夜空
+     ---------------------------------------------------------------- */
   :root[data-skin='aurora'] {
-    --skin-accent: #06b6d4;
-    --skin-accent-2: #14b8a6;
-    --skin-accent-3: #0f172a;
-    --skin-accent-soft: rgba(6, 182, 212, 0.12);
-    --skin-accent-rgb: 6 182 212;
-    --skin-accent-glow: rgba(6, 182, 212, 0.45);
+    --skin-accent: #0d9488;
+    --skin-accent-2: #2dd4bf;
+    --skin-accent-3: #6366f1;
+    --skin-accent-soft: rgba(13, 148, 136, 0.12);
+    --skin-accent-rgb: 13 148 136;
+    --skin-accent-glow: rgba(45, 212, 191, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(45, 212, 191, 0.12), transparent 35%),
+      radial-gradient(ellipse at 88% 10%, rgba(99, 102, 241, 0.08), transparent 32%),
+      linear-gradient(180deg, #f0fdfa 0%, #f4fbfb 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(45, 212, 191, 0.16), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(240, 253, 250, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(240, 253, 250, 0.75);
+    --skin-panel-border: rgba(13, 148, 136, 0.1);
+    --skin-border: rgba(13, 148, 136, 0.12);
+    --skin-border-strong: rgba(13, 148, 136, 0.22);
+    --skin-text-strong: #0f2e28;
+    --skin-text-main: #134e48;
+    --skin-text-muted: #4d7c75;
+    --skin-text-subtle: #84a9a2;
+    --skin-window-text: #134e48;
   }
 
+  :root[data-skin='aurora'].dark {
+    --skin-accent: #2dd4bf;
+    --skin-accent-2: #818cf8;
+    --skin-accent-3: #38bdf8;
+    --skin-accent-soft: rgba(45, 212, 191, 0.14);
+    --skin-accent-rgb: 45 212 191;
+    --skin-accent-glow: rgba(45, 212, 191, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(45, 212, 191, 0.2), transparent 38%),
+      radial-gradient(ellipse at 86% 10%, rgba(129, 140, 248, 0.15), transparent 34%),
+      linear-gradient(180deg, #030a12 0%, #051522 48%, #081d2c 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(45, 212, 191, 0.26), transparent 36%),
+      linear-gradient(90deg, rgba(3, 10, 18, 0.98), rgba(5, 21, 34, 0.98) 54%, rgba(8, 29, 44, 0.98));
+    --skin-panel-bg: rgba(6, 22, 34, 0.82);
+    --skin-panel-bg-soft: rgba(6, 22, 34, 0.6);
+    --skin-panel-border: rgba(45, 212, 191, 0.14);
+    --skin-border: rgba(45, 212, 191, 0.14);
+    --skin-border-strong: rgba(45, 212, 191, 0.28);
+    --skin-text-strong: #f0fdfa;
+    --skin-text-main: #e6fffa;
+    --skin-text-muted: #99f6e4;
+    --skin-text-subtle: #5eead4;
+    --skin-window-text: #99f6e4;
+  }
+
+  /* ----------------------------------------------------------------
+     2. sky-glass: 晴空晶透 (Azure Glass)
+     纯净蔚蓝、通透冰晶玻璃与明朗晨光
+     ---------------------------------------------------------------- */
   :root[data-skin='sky-glass'] {
     --skin-accent: #2f80ff;
-    --skin-accent-2: #6bb7ff;
-    --skin-accent-3: #173b66;
+    --skin-accent-2: #60a5fa;
+    --skin-accent-3: #0284c7;
     --skin-accent-soft: rgba(47, 128, 255, 0.12);
     --skin-accent-rgb: 47 128 255;
     --skin-accent-glow: rgba(47, 128, 255, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(47, 128, 255, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(96, 165, 250, 0.08), transparent 30%),
+      linear-gradient(180deg, #f0f7ff 0%, #f6fafe 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(47, 128, 255, 0.15), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(240, 247, 255, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(240, 247, 255, 0.72);
+    --skin-panel-border: rgba(47, 128, 255, 0.1);
+    --skin-border: rgba(47, 128, 255, 0.12);
+    --skin-border-strong: rgba(47, 128, 255, 0.22);
+    --skin-text-strong: #0b192c;
+    --skin-text-main: #1e293b;
+    --skin-text-muted: #475569;
+    --skin-text-subtle: #94a3b8;
+    --skin-window-text: #334155;
   }
 
+  :root[data-skin='sky-glass'].dark {
+    --skin-accent: #3b82f6;
+    --skin-accent-2: #60a5fa;
+    --skin-accent-3: #93c5fd;
+    --skin-accent-soft: rgba(59, 130, 246, 0.14);
+    --skin-accent-rgb: 59 130 246;
+    --skin-accent-glow: rgba(59, 130, 246, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(47, 128, 255, 0.2), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(96, 165, 250, 0.14), transparent 32%),
+      linear-gradient(180deg, #050b18 0%, #08142a 48%, #0d2042 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(47, 128, 255, 0.26), transparent 34%),
+      linear-gradient(90deg, rgba(5, 11, 24, 0.98), rgba(8, 20, 42, 0.98) 54%, rgba(13, 32, 66, 0.98));
+    --skin-panel-bg: rgba(9, 22, 46, 0.82);
+    --skin-panel-bg-soft: rgba(9, 22, 46, 0.6);
+    --skin-panel-border: rgba(96, 165, 250, 0.14);
+    --skin-border: rgba(96, 165, 250, 0.14);
+    --skin-border-strong: rgba(96, 165, 250, 0.28);
+    --skin-text-strong: #f0f7ff;
+    --skin-text-main: #e0f0fe;
+    --skin-text-muted: #93c5fd;
+    --skin-text-subtle: #60a5fa;
+    --skin-window-text: #bfdbfe;
+  }
+
+  /* ----------------------------------------------------------------
+     3. mint-tech: 生机翡翠 (Botanical Emerald)
+     沉稳翡翠与春季鼠尾草绿，舒缓护眼，极客自然主义
+     ---------------------------------------------------------------- */
   :root[data-skin='mint-tech'] {
-    --skin-accent: #10b981;
-    --skin-accent-2: #06d6a0;
-    --skin-accent-3: #22d3ee;
-    --skin-accent-soft: rgba(16, 185, 129, 0.12);
-    --skin-accent-rgb: 16 185 129;
+    --skin-accent: #059669;
+    --skin-accent-2: #10b981;
+    --skin-accent-3: #34d399;
+    --skin-accent-soft: rgba(5, 150, 105, 0.12);
+    --skin-accent-rgb: 5 150 105;
     --skin-accent-glow: rgba(16, 185, 129, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(16, 185, 129, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(52, 211, 153, 0.08), transparent 30%),
+      linear-gradient(180deg, #f0fdf4 0%, #f6fcf8 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(16, 185, 129, 0.15), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(240, 253, 244, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(240, 253, 244, 0.72);
+    --skin-panel-border: rgba(5, 150, 105, 0.1);
+    --skin-border: rgba(5, 150, 105, 0.12);
+    --skin-border-strong: rgba(5, 150, 105, 0.22);
+    --skin-text-strong: #052e16;
+    --skin-text-main: #064e3b;
+    --skin-text-muted: #366d58;
+    --skin-text-subtle: #6ee7b7;
+    --skin-window-text: #064e3b;
   }
 
+  :root[data-skin='mint-tech'].dark {
+    --skin-accent: #10b981;
+    --skin-accent-2: #34d399;
+    --skin-accent-3: #6ee7b7;
+    --skin-accent-soft: rgba(16, 185, 129, 0.14);
+    --skin-accent-rgb: 16 185 129;
+    --skin-accent-glow: rgba(16, 185, 129, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(16, 185, 129, 0.18), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(52, 211, 153, 0.12), transparent 32%),
+      linear-gradient(180deg, #030e09 0%, #061911 48%, #0a251a 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(16, 185, 129, 0.24), transparent 34%),
+      linear-gradient(90deg, rgba(3, 14, 9, 0.98), rgba(6, 25, 17, 0.98) 54%, rgba(10, 37, 26, 0.98));
+    --skin-panel-bg: rgba(7, 27, 18, 0.82);
+    --skin-panel-bg-soft: rgba(7, 27, 18, 0.6);
+    --skin-panel-border: rgba(52, 211, 153, 0.14);
+    --skin-border: rgba(52, 211, 153, 0.14);
+    --skin-border-strong: rgba(52, 211, 153, 0.26);
+    --skin-text-strong: #f0fdf4;
+    --skin-text-main: #dcfce7;
+    --skin-text-muted: #a7f3d0;
+    --skin-text-subtle: #6ee7b7;
+    --skin-window-text: #a7f3d0;
+  }
+
+  /* ----------------------------------------------------------------
+     4. glow-purple: 暗夜星云 (Cyber Nebula)
+     深邃星云紫与赛博电光霓虹，潮酷前卫，沉浸质感
+     ---------------------------------------------------------------- */
   :root[data-skin='glow-purple'] {
-    --skin-accent: #6366f1;
-    --skin-accent-2: #a78bfa;
-    --skin-accent-3: #8b5cf6;
-    --skin-accent-soft: rgba(99, 102, 241, 0.12);
-    --skin-accent-rgb: 99 102 241;
-    --skin-accent-glow: rgba(99, 102, 241, 0.5);
+    --skin-accent: #9333ea;
+    --skin-accent-2: #c084fc;
+    --skin-accent-3: #ec4899;
+    --skin-accent-soft: rgba(147, 51, 234, 0.12);
+    --skin-accent-rgb: 147 51 234;
+    --skin-accent-glow: rgba(168, 85, 247, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(168, 85, 247, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(236, 72, 153, 0.08), transparent 30%),
+      linear-gradient(180deg, #faf5ff 0%, #fdf8fe 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(168, 85, 247, 0.15), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(250, 245, 255, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(250, 245, 255, 0.72);
+    --skin-panel-border: rgba(147, 51, 234, 0.1);
+    --skin-border: rgba(147, 51, 234, 0.12);
+    --skin-border-strong: rgba(147, 51, 234, 0.22);
+    --skin-text-strong: #240b3b;
+    --skin-text-main: #3b1366;
+    --skin-text-muted: #6b4397;
+    --skin-text-subtle: #a855f7;
+    --skin-window-text: #3b1366;
   }
 
+  :root[data-skin='glow-purple'].dark {
+    --skin-accent: #a855f7;
+    --skin-accent-2: #ec4899;
+    --skin-accent-3: #818cf8;
+    --skin-accent-soft: rgba(168, 85, 247, 0.15);
+    --skin-accent-rgb: 168 85 247;
+    --skin-accent-glow: rgba(168, 85, 247, 0.55);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(168, 85, 247, 0.22), transparent 38%),
+      radial-gradient(ellipse at 86% 10%, rgba(236, 72, 153, 0.16), transparent 34%),
+      linear-gradient(180deg, #080312 0%, #110722 48%, #190a33 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(168, 85, 247, 0.28), transparent 35%),
+      linear-gradient(90deg, rgba(8, 3, 18, 0.98), rgba(17, 7, 34, 0.98) 54%, rgba(25, 10, 51, 0.98));
+    --skin-panel-bg: rgba(20, 10, 38, 0.82);
+    --skin-panel-bg-soft: rgba(20, 10, 38, 0.6);
+    --skin-panel-border: rgba(192, 132, 252, 0.15);
+    --skin-border: rgba(192, 132, 252, 0.15);
+    --skin-border-strong: rgba(192, 132, 252, 0.28);
+    --skin-text-strong: #faf5ff;
+    --skin-text-main: #f3e8ff;
+    --skin-text-muted: #d8b4fe;
+    --skin-text-subtle: #c084fc;
+    --skin-window-text: #d8b4fe;
+  }
+
+  /* ----------------------------------------------------------------
+     5. coral-pop: 暖阳珊瑚 (Velvet Coral)
+     意式意浓珊瑚红与温暖落日杏桃，柔和明丽，轻奢舒适
+     ---------------------------------------------------------------- */
   :root[data-skin='coral-pop'] {
-    --skin-accent: #ff6b6b;
-    --skin-accent-2: #ff9f7f;
-    --skin-accent-3: #ff7b87;
-    --skin-accent-soft: rgba(255, 107, 107, 0.12);
-    --skin-accent-rgb: 255 107 107;
-    --skin-accent-glow: rgba(255, 107, 107, 0.45);
+    --skin-accent: #e11d48;
+    --skin-accent-2: #f43f5e;
+    --skin-accent-3: #fb923c;
+    --skin-accent-soft: rgba(225, 29, 72, 0.12);
+    --skin-accent-rgb: 225 29 72;
+    --skin-accent-glow: rgba(244, 63, 94, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(244, 63, 94, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(251, 146, 60, 0.08), transparent 30%),
+      linear-gradient(180deg, #fff5f5 0%, #fdf8f8 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(244, 63, 94, 0.14), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 245, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(255, 245, 245, 0.72);
+    --skin-panel-border: rgba(225, 29, 72, 0.1);
+    --skin-border: rgba(225, 29, 72, 0.12);
+    --skin-border-strong: rgba(225, 29, 72, 0.22);
+    --skin-text-strong: #330811;
+    --skin-text-main: #4c111e;
+    --skin-text-muted: #883f4f;
+    --skin-text-subtle: #fb7185;
+    --skin-window-text: #4c111e;
   }
 
+  :root[data-skin='coral-pop'].dark {
+    --skin-accent: #fb7185;
+    --skin-accent-2: #fb923c;
+    --skin-accent-3: #fda4af;
+    --skin-accent-soft: rgba(251, 113, 133, 0.14);
+    --skin-accent-rgb: 251 113 133;
+    --skin-accent-glow: rgba(251, 113, 133, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(244, 63, 94, 0.2), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(251, 146, 60, 0.14), transparent 32%),
+      linear-gradient(180deg, #100407 0%, #1c080e 48%, #290d16 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(244, 63, 94, 0.26), transparent 34%),
+      linear-gradient(90deg, rgba(16, 4, 7, 0.98), rgba(28, 8, 14, 0.98) 54%, rgba(41, 13, 22, 0.98));
+    --skin-panel-bg: rgba(30, 10, 16, 0.82);
+    --skin-panel-bg-soft: rgba(30, 10, 16, 0.6);
+    --skin-panel-border: rgba(251, 113, 133, 0.15);
+    --skin-border: rgba(251, 113, 133, 0.15);
+    --skin-border-strong: rgba(251, 113, 133, 0.28);
+    --skin-text-strong: #fff1f2;
+    --skin-text-main: #ffe4e6;
+    --skin-text-muted: #fca5a5;
+    --skin-text-subtle: #fda4af;
+    --skin-window-text: #fecdd3;
+  }
+
+  /* ----------------------------------------------------------------
+     6. sunset-orange: 暮色暖霞 (Amber Terracotta)
+     浓郁琥珀、烘焙陶土与暖金落霞，温润稳重，充满热力
+     ---------------------------------------------------------------- */
   :root[data-skin='sunset-orange'] {
-    --skin-accent: #fb923c;
-    --skin-accent-2: #f97316;
-    --skin-accent-3: #fbbf24;
-    --skin-accent-soft: rgba(251, 146, 60, 0.12);
-    --skin-accent-rgb: 251 146 60;
-    --skin-accent-glow: rgba(251, 146, 60, 0.45);
+    --skin-accent: #ea580c;
+    --skin-accent-2: #f59e0b;
+    --skin-accent-3: #c2410c;
+    --skin-accent-soft: rgba(234, 88, 12, 0.12);
+    --skin-accent-rgb: 234 88 12;
+    --skin-accent-glow: rgba(234, 88, 12, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(234, 88, 12, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(245, 158, 11, 0.08), transparent 30%),
+      linear-gradient(180deg, #fff7ed 0%, #fdf9f4 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(234, 88, 12, 0.15), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 237, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(255, 247, 237, 0.72);
+    --skin-panel-border: rgba(234, 88, 12, 0.1);
+    --skin-border: rgba(234, 88, 12, 0.12);
+    --skin-border-strong: rgba(234, 88, 12, 0.22);
+    --skin-text-strong: #331405;
+    --skin-text-main: #4a1d07;
+    --skin-text-muted: #824726;
+    --skin-text-subtle: #f97316;
+    --skin-window-text: #4a1d07;
   }
 
+  :root[data-skin='sunset-orange'].dark {
+    --skin-accent: #f97316;
+    --skin-accent-2: #fbbf24;
+    --skin-accent-3: #fdba74;
+    --skin-accent-soft: rgba(249, 115, 22, 0.14);
+    --skin-accent-rgb: 249 115 22;
+    --skin-accent-glow: rgba(249, 115, 22, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(234, 88, 12, 0.2), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(245, 158, 11, 0.14), transparent 32%),
+      linear-gradient(180deg, #100602 0%, #1c0b04 48%, #281207 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(234, 88, 12, 0.26), transparent 34%),
+      linear-gradient(90deg, rgba(16, 6, 2, 0.98), rgba(28, 11, 4, 0.98) 54%, rgba(40, 18, 7, 0.98));
+    --skin-panel-bg: rgba(30, 13, 6, 0.82);
+    --skin-panel-bg-soft: rgba(30, 13, 6, 0.6);
+    --skin-panel-border: rgba(249, 115, 22, 0.15);
+    --skin-border: rgba(249, 115, 22, 0.15);
+    --skin-border-strong: rgba(249, 115, 22, 0.28);
+    --skin-text-strong: #fff7ed;
+    --skin-text-main: #ffedd5;
+    --skin-text-muted: #fed7aa;
+    --skin-text-subtle: #fdba74;
+    --skin-window-text: #fed7aa;
+  }
+
+  /* ----------------------------------------------------------------
+     7. lime-cyan: 青竹青瓷 (Celadon Jade & Bamboo)
+     东方素雅青瓷与新雨修竹，温润淡雅，彻底摒弃刺眼荧光
+     ---------------------------------------------------------------- */
   :root[data-skin='lime-cyan'] {
-    --skin-accent: #84cc16;
-    --skin-accent-2: #e3f53c;
-    --skin-accent-3: #22c55e;
-    --skin-accent-soft: rgba(132, 204, 22, 0.12);
-    --skin-accent-rgb: 132 204 22;
-    --skin-accent-glow: rgba(132, 204, 22, 0.45);
+    --skin-accent: #16a34a;
+    --skin-accent-2: #14b8a6;
+    --skin-accent-3: #65a30d;
+    --skin-accent-soft: rgba(22, 163, 74, 0.12);
+    --skin-accent-rgb: 22 163 74;
+    --skin-accent-glow: rgba(22, 163, 74, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(22, 163, 74, 0.11), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(20, 184, 166, 0.08), transparent 30%),
+      linear-gradient(180deg, #f4faf5 0%, #f8fbf9 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(22, 163, 74, 0.14), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 245, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(244, 250, 245, 0.72);
+    --skin-panel-border: rgba(22, 163, 74, 0.1);
+    --skin-border: rgba(22, 163, 74, 0.12);
+    --skin-border-strong: rgba(22, 163, 74, 0.22);
+    --skin-text-strong: #092611;
+    --skin-text-main: #143e1d;
+    --skin-text-muted: #3d6a48;
+    --skin-text-subtle: #4ade80;
+    --skin-window-text: #143e1d;
   }
 
+  :root[data-skin='lime-cyan'].dark {
+    --skin-accent: #22c55e;
+    --skin-accent-2: #2dd4bf;
+    --skin-accent-3: #86efac;
+    --skin-accent-soft: rgba(34, 197, 94, 0.14);
+    --skin-accent-rgb: 34 197 94;
+    --skin-accent-glow: rgba(34, 197, 94, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(34, 197, 94, 0.18), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(45, 212, 191, 0.12), transparent 32%),
+      linear-gradient(180deg, #040e07 0%, #081a0e 48%, #0d2816 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(34, 197, 94, 0.24), transparent 34%),
+      linear-gradient(90deg, rgba(4, 14, 7, 0.98), rgba(8, 26, 14, 0.98) 54%, rgba(13, 40, 22, 0.98));
+    --skin-panel-bg: rgba(9, 29, 16, 0.82);
+    --skin-panel-bg-soft: rgba(9, 29, 16, 0.6);
+    --skin-panel-border: rgba(74, 222, 128, 0.14);
+    --skin-border: rgba(74, 222, 128, 0.14);
+    --skin-border-strong: rgba(74, 222, 128, 0.26);
+    --skin-text-strong: #f0fdf4;
+    --skin-text-main: #dcfce7;
+    --skin-text-muted: #86efac;
+    --skin-text-subtle: #4ade80;
+    --skin-window-text: #86efac;
+  }
+
+  /* ----------------------------------------------------------------
+     8. sakura-mist: 落樱春雪 (Sakura Mist & Rose Quartz)
+     早樱绯红、落英粉雪与初霁雾紫，轻盈典雅，温柔细腻
+     ---------------------------------------------------------------- */
   :root[data-skin='sakura-mist'] {
-    --skin-accent: #f472b6;
+    --skin-accent: #e11d48;
     --skin-accent-2: #fb7185;
-    --skin-accent-3: #d946ef;
-    --skin-accent-soft: rgba(244, 114, 182, 0.12);
-    --skin-accent-rgb: 244 114 182;
-    --skin-accent-glow: rgba(244, 114, 182, 0.45);
+    --skin-accent-3: #c084fc;
+    --skin-accent-soft: rgba(225, 29, 72, 0.12);
+    --skin-accent-rgb: 225 29 72;
+    --skin-accent-glow: rgba(251, 113, 133, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(251, 113, 133, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(192, 132, 252, 0.08), transparent 30%),
+      linear-gradient(180deg, #fff5f7 0%, #fef8f9 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(251, 113, 133, 0.14), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 247, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(255, 245, 247, 0.72);
+    --skin-panel-border: rgba(225, 29, 72, 0.1);
+    --skin-border: rgba(225, 29, 72, 0.12);
+    --skin-border-strong: rgba(225, 29, 72, 0.22);
+    --skin-text-strong: #300818;
+    --skin-text-main: #4a1329;
+    --skin-text-muted: #843a59;
+    --skin-text-subtle: #fb7185;
+    --skin-window-text: #4a1329;
   }
 
+  :root[data-skin='sakura-mist'].dark {
+    --skin-accent: #f43f5e;
+    --skin-accent-2: #fb7185;
+    --skin-accent-3: #e879f9;
+    --skin-accent-soft: rgba(244, 63, 94, 0.14);
+    --skin-accent-rgb: 244 63 94;
+    --skin-accent-glow: rgba(244, 63, 94, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(244, 63, 94, 0.2), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(232, 121, 249, 0.14), transparent 32%),
+      linear-gradient(180deg, #10030c 0%, #1b0715 48%, #280a20 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(244, 63, 94, 0.26), transparent 34%),
+      linear-gradient(90deg, rgba(16, 3, 12, 0.98), rgba(27, 7, 21, 0.98) 54%, rgba(40, 10, 32, 0.98));
+    --skin-panel-bg: rgba(29, 9, 23, 0.82);
+    --skin-panel-bg-soft: rgba(29, 9, 23, 0.6);
+    --skin-panel-border: rgba(251, 113, 133, 0.15);
+    --skin-border: rgba(251, 113, 133, 0.15);
+    --skin-border-strong: rgba(251, 113, 133, 0.28);
+    --skin-text-strong: #fff1f5;
+    --skin-text-main: #fce7f3;
+    --skin-text-muted: #f472b6;
+    --skin-text-subtle: #fb7185;
+    --skin-window-text: #fbcfe8;
+  }
+
+  /* ----------------------------------------------------------------
+     9. desert-khaki: 燕麦暖褐 (Warm Oat & Muted Mocha)
+     北欧羊绒燕麦、烘焙摩卡暖咖，静谧内敛，告别泥土暗沉
+     ---------------------------------------------------------------- */
   :root[data-skin='desert-khaki'] {
-    --skin-accent: #d4a373;
-    --skin-accent-2: #c26e3d;
-    --skin-accent-3: #8b5e3c;
-    --skin-accent-soft: rgba(212, 163, 115, 0.14);
-    --skin-accent-rgb: 212 163 115;
-    --skin-accent-glow: rgba(212, 163, 115, 0.4);
+    --skin-accent: #b45309;
+    --skin-accent-2: #d97706;
+    --skin-accent-3: #78350f;
+    --skin-accent-soft: rgba(180, 83, 9, 0.12);
+    --skin-accent-rgb: 180 83 9;
+    --skin-accent-glow: rgba(180, 83, 9, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(180, 83, 9, 0.11), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(217, 119, 6, 0.08), transparent 30%),
+      linear-gradient(180deg, #faf6f0 0%, #fcf9f5 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(180, 83, 9, 0.14), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(250, 246, 240, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(250, 246, 240, 0.72);
+    --skin-panel-border: rgba(180, 83, 9, 0.1);
+    --skin-border: rgba(180, 83, 9, 0.12);
+    --skin-border-strong: rgba(180, 83, 9, 0.22);
+    --skin-text-strong: #2c1a0c;
+    --skin-text-main: #422813;
+    --skin-text-muted: #785234;
+    --skin-text-subtle: #d97706;
+    --skin-window-text: #422813;
   }
 
+  :root[data-skin='desert-khaki'].dark {
+    --skin-accent: #d97706;
+    --skin-accent-2: #f59e0b;
+    --skin-accent-3: #fbbf24;
+    --skin-accent-soft: rgba(217, 119, 6, 0.14);
+    --skin-accent-rgb: 217 119 6;
+    --skin-accent-glow: rgba(217, 119, 6, 0.5);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 14% 0%, rgba(217, 119, 6, 0.18), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(245, 158, 11, 0.12), transparent 32%),
+      linear-gradient(180deg, #100b06 0%, #1b130b 48%, #261b0f 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 14% 0%, rgba(217, 119, 6, 0.24), transparent 34%),
+      linear-gradient(90deg, rgba(16, 11, 6, 0.98), rgba(27, 19, 11, 0.98) 54%, rgba(38, 27, 15, 0.98));
+    --skin-panel-bg: rgba(28, 20, 12, 0.82);
+    --skin-panel-bg-soft: rgba(28, 20, 12, 0.6);
+    --skin-panel-border: rgba(217, 119, 6, 0.14);
+    --skin-border: rgba(217, 119, 6, 0.14);
+    --skin-border-strong: rgba(217, 119, 6, 0.26);
+    --skin-text-strong: #fef3c7;
+    --skin-text-main: #fde68a;
+    --skin-text-muted: #d97706;
+    --skin-text-subtle: #b45309;
+    --skin-window-text: #fde68a;
+  }
+
+  /* ----------------------------------------------------------------
+     10. deep-sea: 深海深渊 (Abyssal Trench)
+     万米海渊、午夜幽蓝与深海生物荧光，幽邃浩瀚，终极专注
+     ---------------------------------------------------------------- */
   :root[data-skin='deep-sea'] {
-    --skin-accent: #22d3ee;
-    --skin-accent-2: #38bdf8;
-    --skin-accent-3: #94a3b8;
-    --skin-accent-soft: rgba(34, 211, 238, 0.12);
-    --skin-accent-rgb: 34 211 238;
-    --skin-accent-glow: rgba(34, 211, 238, 0.5);
+    --skin-accent: #0284c7;
+    --skin-accent-2: #00d2ff;
+    --skin-accent-3: #0d9488;
+    --skin-accent-soft: rgba(2, 132, 199, 0.12);
+    --skin-accent-rgb: 2 132 199;
+    --skin-accent-glow: rgba(0, 210, 255, 0.45);
+
+    --skin-shell-bg:
+      radial-gradient(ellipse at 12% 0%, rgba(0, 210, 255, 0.12), transparent 34%),
+      radial-gradient(ellipse at 88% 8%, rgba(2, 132, 199, 0.08), transparent 30%),
+      linear-gradient(180deg, #f0f9ff 0%, #f6fafe 48%, #ffffff 100%);
+    --skin-titlebar-bg:
+      radial-gradient(circle at 16% 0%, rgba(0, 210, 255, 0.15), transparent 30%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.94));
+    --skin-panel-bg: rgba(255, 255, 255, 0.92);
+    --skin-panel-bg-soft: rgba(240, 249, 255, 0.72);
+    --skin-panel-border: rgba(2, 132, 199, 0.1);
+    --skin-border: rgba(2, 132, 199, 0.12);
+    --skin-border-strong: rgba(2, 132, 199, 0.22);
+    --skin-text-strong: #041d33;
+    --skin-text-main: #0c3355;
+    --skin-text-muted: #356285;
+    --skin-text-subtle: #38bdf8;
+    --skin-window-text: #0c3355;
   }
 
   :root[data-skin='deep-sea'].dark {
+    --skin-accent: #00d2ff;
+    --skin-accent-2: #38bdf8;
+    --skin-accent-3: #2563eb;
+    --skin-accent-soft: rgba(0, 210, 255, 0.14);
+    --skin-accent-rgb: 0 210 255;
+    --skin-accent-glow: rgba(0, 210, 255, 0.55);
+
     --skin-shell-bg:
-      radial-gradient(ellipse at 14% 0%, rgba(34, 211, 238, 0.22), transparent 36%),
-      radial-gradient(ellipse at 86% 10%, rgba(56, 189, 248, 0.14), transparent 32%),
-      linear-gradient(180deg, #030712 0%, #051028 48%, #07182f 100%);
+      radial-gradient(ellipse at 14% 0%, rgba(0, 210, 255, 0.22), transparent 36%),
+      radial-gradient(ellipse at 86% 10%, rgba(56, 189, 248, 0.15), transparent 32%),
+      linear-gradient(180deg, #010612 0%, #031026 48%, #06193d 100%);
     --skin-titlebar-bg:
-      radial-gradient(circle at 14% 0%, rgba(34, 211, 238, 0.3), transparent 36%),
-      linear-gradient(90deg, rgba(3, 7, 18, 0.98), rgba(5, 16, 40, 0.98) 54%, rgba(7, 24, 47, 0.98));
+      radial-gradient(circle at 14% 0%, rgba(0, 210, 255, 0.28), transparent 36%),
+      linear-gradient(90deg, rgba(1, 6, 18, 0.98), rgba(3, 16, 38, 0.98) 54%, rgba(6, 25, 61, 0.98));
+    --skin-panel-bg: rgba(4, 18, 42, 0.82);
+    --skin-panel-bg-soft: rgba(4, 18, 42, 0.6);
+    --skin-panel-border: rgba(0, 210, 255, 0.16);
+    --skin-border: rgba(0, 210, 255, 0.16);
+    --skin-border-strong: rgba(0, 210, 255, 0.3);
+    --skin-text-strong: #e0f2fe;
+    --skin-text-main: #bae6fd;
+    --skin-text-muted: #7dd3fc;
+    --skin-text-subtle: #38bdf8;
+    --skin-window-text: #7dd3fc;
   }
 
+  /* ----------------------------------------------------------------
+     11. black-gold: 黑金专业 (Obsidian & Royal Gold)
+     用户明确表示满意的黑金配色，严格保持原有变量定义不变！
+     ---------------------------------------------------------------- */
   :root[data-skin='black-gold'] {
     --skin-accent: #f2c94c;
     --skin-accent-2: #b08d57;

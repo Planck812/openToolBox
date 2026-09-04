@@ -258,44 +258,44 @@
   },
   "skin": {
     "aurora": {
-      "name": "Aurora Teal",
-      "description": "Cool teal scheme, fresh and techy"
+      "name": "Aurora Borealis",
+      "description": "Arctic teal with ethereal polar mist"
     },
     "sky-glass": {
-      "name": "Sky Glass",
-      "description": "Light blue glass, airy and translucent"
+      "name": "Azure Glass",
+      "description": "Crisp cerulean and airy frosted glass"
     },
     "mint-tech": {
-      "name": "Mint Tech",
-      "description": "Mint green primary, fresh and natural"
+      "name": "Botanical Emerald",
+      "description": "Calming emerald and fresh spring sage"
     },
     "glow-purple": {
-      "name": "Twilight Purple",
-      "description": "Twilight purple, mysterious and sharp"
+      "name": "Cyber Nebula",
+      "description": "Deep space violet and neon twilight glow"
     },
     "coral-pop": {
-      "name": "Coral Pop",
-      "description": "Coral pink-orange, vibrant and bright"
+      "name": "Velvet Coral",
+      "description": "Warm living coral with sun-kissed peach"
     },
     "sunset-orange": {
-      "name": "Sunset Orange",
-      "description": "Warm orange-red over a cream base"
+      "name": "Amber Terracotta",
+      "description": "Molten honey and rich ember terracotta"
     },
     "lime-cyan": {
-      "name": "Lime Yuzu",
-      "description": "Lime and green, lively and bright"
+      "name": "Celadon Jade",
+      "description": "Serene bamboo green and tranquil celadon"
     },
     "sakura-mist": {
       "name": "Sakura Mist",
-      "description": "Sakura pink mist, soft and delicate"
+      "description": "Delicate petal pink with soft lilac mist"
     },
     "desert-khaki": {
-      "name": "Desert Khaki",
-      "description": "Warm khaki brown, calm and long-lasting"
+      "name": "Warm Oat",
+      "description": "Nordic cashmere, warm oat and roasted mocha"
     },
     "deep-sea": {
-      "name": "Deep Sea Night",
-      "description": "Dark blue depths, calm and professional"
+      "name": "Abyssal Trench",
+      "description": "Oceanic midnight with bioluminescent cyan"
     },
     "black-gold": {
       "name": "Black & Gold",

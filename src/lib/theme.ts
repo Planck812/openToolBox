@@ -28,16 +28,16 @@ export type ThemeSkinDefinition = {
 };
 
 export const THEME_SKINS: ThemeSkinDefinition[] = [
-  { id: 'aurora', name: 'skin.aurora.name', description: 'skin.aurora.description', accent: '#06B6D4', accent2: '#14B8A6', accent3: '#0F172A', panel: '#E0F2FE', background: '#F8FBFF', recommendedMode: 'light' },
-  { id: 'sky-glass', name: 'skin.sky-glass.name', description: 'skin.sky-glass.description', accent: '#2F80FF', accent2: '#6BB7FF', accent3: '#173B66', panel: '#EEF7FF', background: 'linear-gradient(135deg, #EEF7FF 0%, #FFFFFF 52%, #E8F6FF 100%)', recommendedMode: 'light' },
-  { id: 'mint-tech', name: 'skin.mint-tech.name', description: 'skin.mint-tech.description', accent: '#10B981', accent2: '#06D6A0', accent3: '#22D3EE', panel: '#DCFDF4', background: '#F6FFFB', recommendedMode: 'light' },
-  { id: 'glow-purple', name: 'skin.glow-purple.name', description: 'skin.glow-purple.description', accent: '#6366F1', accent2: '#A78BFA', accent3: '#8B5CF6', panel: '#F5F3FF', background: '#FBF9FF', recommendedMode: 'light' },
-  { id: 'coral-pop', name: 'skin.coral-pop.name', description: 'skin.coral-pop.description', accent: '#FF6B6B', accent2: '#FF9F7F', accent3: '#FFB7C5', panel: '#FFF4F2', background: '#FFF9F8', recommendedMode: 'light' },
-  { id: 'sunset-orange', name: 'skin.sunset-orange.name', description: 'skin.sunset-orange.description', accent: '#FB923C', accent2: '#F97316', accent3: '#FBBF24', panel: '#FFF3E6', background: '#FFF9F2', recommendedMode: 'light' },
-  { id: 'lime-cyan', name: 'skin.lime-cyan.name', description: 'skin.lime-cyan.description', accent: '#84CC16', accent2: '#E3F53C', accent3: '#22C55E', panel: '#F7FEE7', background: '#FBFFF3', recommendedMode: 'light' },
-  { id: 'sakura-mist', name: 'skin.sakura-mist.name', description: 'skin.sakura-mist.description', accent: '#F472B6', accent2: '#FB7185', accent3: '#D946EF', panel: '#FFF1F7', background: '#FFF7F9', recommendedMode: 'light' },
-  { id: 'desert-khaki', name: 'skin.desert-khaki.name', description: 'skin.desert-khaki.description', accent: '#D4A373', accent2: '#C26E3D', accent3: '#8B5E3C', panel: '#FDF2E3', background: '#FFF9F3', recommendedMode: 'light' },
-  { id: 'deep-sea', name: 'skin.deep-sea.name', description: 'skin.deep-sea.description', accent: '#0B1220', accent2: '#1E40AF', accent3: '#22D3EE', panel: '#0F172A', background: '#020617', recommendedMode: 'dark' },
+  { id: 'aurora', name: 'skin.aurora.name', description: 'skin.aurora.description', accent: '#0D9488', accent2: '#2DD4BF', accent3: '#6366F1', panel: '#F0FDFA', background: 'linear-gradient(135deg, #F0FDFA 0%, #FFFFFF 52%, #E6FFFA 100%)', recommendedMode: 'light' },
+  { id: 'sky-glass', name: 'skin.sky-glass.name', description: 'skin.sky-glass.description', accent: '#2F80FF', accent2: '#60A5FA', accent3: '#0284C7', panel: '#EEF7FF', background: 'linear-gradient(135deg, #EEF7FF 0%, #FFFFFF 52%, #E8F4FF 100%)', recommendedMode: 'light' },
+  { id: 'mint-tech', name: 'skin.mint-tech.name', description: 'skin.mint-tech.description', accent: '#059669', accent2: '#10B981', accent3: '#34D399', panel: '#ECFDF5', background: 'linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 52%, #DCFCE7 100%)', recommendedMode: 'light' },
+  { id: 'glow-purple', name: 'skin.glow-purple.name', description: 'skin.glow-purple.description', accent: '#A855F7', accent2: '#EC4899', accent3: '#6366F1', panel: '#190E2E', background: '#0B0517', recommendedMode: 'dark' },
+  { id: 'coral-pop', name: 'skin.coral-pop.name', description: 'skin.coral-pop.description', accent: '#F43F5E', accent2: '#FB923C', accent3: '#E11D48', panel: '#FFF1F2', background: 'linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 52%, #FFE4E6 100%)', recommendedMode: 'light' },
+  { id: 'sunset-orange', name: 'skin.sunset-orange.name', description: 'skin.sunset-orange.description', accent: '#EA580C', accent2: '#F59E0B', accent3: '#9A3412', panel: '#FFF7ED', background: 'linear-gradient(135deg, #FFF8F1 0%, #FFFFFF 52%, #FFEDD5 100%)', recommendedMode: 'light' },
+  { id: 'lime-cyan', name: 'skin.lime-cyan.name', description: 'skin.lime-cyan.description', accent: '#16A34A', accent2: '#14B8A6', accent3: '#84CC16', panel: '#F0FDF4', background: 'linear-gradient(135deg, #F4FAF5 0%, #FFFFFF 52%, #E8F5E9 100%)', recommendedMode: 'light' },
+  { id: 'sakura-mist', name: 'skin.sakura-mist.name', description: 'skin.sakura-mist.description', accent: '#E11D48', accent2: '#FB7185', accent3: '#C084FC', panel: '#FFF1F5', background: 'linear-gradient(135deg, #FFF5F7 0%, #FFFFFF 52%, #FCE7F3 100%)', recommendedMode: 'light' },
+  { id: 'desert-khaki', name: 'skin.desert-khaki.name', description: 'skin.desert-khaki.description', accent: '#B45309', accent2: '#D97706', accent3: '#78350F', panel: '#FAF6F0', background: 'linear-gradient(135deg, #FAF7F2 0%, #FFFFFF 52%, #F5EDE0 100%)', recommendedMode: 'light' },
+  { id: 'deep-sea', name: 'skin.deep-sea.name', description: 'skin.deep-sea.description', accent: '#00D2FF', accent2: '#2563EB', accent3: '#0D9488', panel: '#08162E', background: '#010614', recommendedMode: 'dark' },
   { id: 'black-gold', name: 'skin.black-gold.name', description: 'skin.black-gold.description', accent: '#0D1117', accent2: '#F2C94C', accent3: '#B08D57', panel: '#111827', background: '#030712', recommendedMode: 'dark' },
 ];
 

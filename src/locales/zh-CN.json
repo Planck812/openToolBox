@@ -258,44 +258,44 @@
   },
   "skin": {
     "aurora": {
-      "name": "极光蓝绿",
-      "description": "冷色系蓝绿，清爽科技"
+      "name": "极光幻境",
+      "description": "极光青蓝与晨曦冷雾，空灵纯粹"
     },
     "sky-glass": {
-      "name": "晴空玻璃",
-      "description": "浅蓝玻璃，自然通透"
+      "name": "晴空晶透",
+      "description": "澄澈蔚蓝与通透晶玻，明净轻盈"
     },
     "mint-tech": {
-      "name": "薄荷科技",
-      "description": "薄荷绿主调，清新自然"
+      "name": "生机翡翠",
+      "description": "林间翡翠与自然苔绿，清新护眼"
     },
     "glow-purple": {
-      "name": "暮光紫",
-      "description": "暮光紫调，神秘锐感"
+      "name": "暗夜星云",
+      "description": "深邃星云与电光紫霓，前卫神秘"
     },
     "coral-pop": {
-      "name": "珊瑚活力",
-      "description": "珊瑚粉橙，活力提亮"
+      "name": "暖阳珊瑚",
+      "description": "落日珊瑚与温暖杏桃，柔和明丽"
     },
     "sunset-orange": {
-      "name": "日落橙红",
-      "description": "热烈橙红，奶油底色"
+      "name": "暮色暖霞",
+      "description": "醇厚琥珀与落霞暖金，温润惬意"
     },
     "lime-cyan": {
-      "name": "柠檬青柚",
-      "description": "青柠与青绿，生机明亮"
+      "name": "青竹青瓷",
+      "description": "修竹青翠与素雅青瓷，淡泊雅致"
     },
     "sakura-mist": {
-      "name": "樱花雾粉",
-      "description": "樱花粉雾，柔和细润"
+      "name": "落樱春雪",
+      "description": "早樱绯红与初融春雪，细腻清甜"
     },
     "desert-khaki": {
-      "name": "沙漠卡其",
-      "description": "卡其暖棕，沉稳耐看"
+      "name": "燕麦暖褐",
+      "description": "北欧燕麦与摩卡暖咖，沉静素雅"
     },
     "deep-sea": {
-      "name": "深海夜幕",
-      "description": "深色蓝域，冷静专业"
+      "name": "深海深渊",
+      "description": "幽邃海渊与冷光荧蓝，浩瀚深沉"
     },
     "black-gold": {
       "name": "黑金专业",
