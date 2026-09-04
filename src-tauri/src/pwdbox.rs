@@ -26,6 +26,8 @@ use crate::error::AppError;
 
 /// 系统凭据库中的 service 标识（pwd-box 与 curl-runner 共用同一 service、不同 user）。
 const SERVICE: &str = "open-toolbox";
+/// 旧版本（smart-toolbox）使用的 service 标识，用于向下兼容平滑迁移凭据。
+const LEGACY_SERVICE: &str = "smart-toolbox";
 /// 密码夹主密钥在系统凭据库中的 user 标识。
 const PWDBOX_USER: &str = "pwdbox-master-key";
 /// Curl 请求历史主密钥在系统凭据库中的 user 标识（独立于密码夹，避免一损俱损）。
@@ -63,7 +65,20 @@ impl MasterKeyStore for KeyringStore {
         let entry = keyring::Entry::new(self.service, self.user).map_err(|e| e.to_string())?;
         match entry.get_password() {
             Ok(hex) => decode_hex(&hex).map(Some),
-            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring::Error::NoEntry) => {
+                // 如果当前使用新 service（open-toolbox），且尚未记录，自动尝试从旧版 smart-toolbox 凭据平滑迁移
+                if self.service == SERVICE {
+                    if let Ok(legacy_entry) = keyring::Entry::new(LEGACY_SERVICE, self.user) {
+                        if let Ok(hex) = legacy_entry.get_password() {
+                            if let Ok(key) = decode_hex(&hex) {
+                                let _ = entry.set_password(&hex);
+                                return Ok(Some(key));
+                            }
+                        }
+                    }
+                }
+                Ok(None)
+            }
             Err(e) => Err(e.to_string()),
         }
     }
