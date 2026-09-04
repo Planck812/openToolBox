@@ -112,8 +112,8 @@ export function useShortcutSync(deps: { navigation: ShortcutSyncNavigation }) {
   };
 
   onMounted(async () => {
-    // 快速唤起窗口的实例：跳过主窗口全部初始化（快捷键同步/事件注册等），UI 由 QuickLaunchRoot 承担。
-    if (isQuickLaunchWindow) {
+    // 快速唤起窗口或纯浏览器预览环境：跳过主窗口全部初始化（快捷键同步/事件注册等）
+    if (isQuickLaunchWindow || !isTauriRuntime()) {
       return;
     }
 

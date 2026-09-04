@@ -1,3 +1,4 @@
+import './lib/tauri-env';
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import { getCurrentWindow } from "@tauri-apps/api/window";

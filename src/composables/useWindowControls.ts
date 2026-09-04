@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useAppStore } from '@/store/app';
 import { useI18n } from 'vue-i18n';
 import { logToFile } from '@/lib/logger';
+import { isTauriEnvironment } from '@/lib/tauri-env';
 
 // 窗口状态在单个 webview 内是单例；模块级 ref 保证 App.vue 与 useShortcutSync 共享同一实例
 // （useShortcutSync 的 onResized 刷新时需更新模板绑定的同一 ref）。
@@ -12,10 +13,7 @@ const isWindowAlwaysOnTop = ref(false);
 /**
  * 判断是否运行在 Tauri 环境
  */
-const isTauriRuntime = () => {
-  const tauriGlobal = window as unknown as Record<string, unknown>;
-  return Boolean(tauriGlobal.__TAURI_INTERNALS__ || tauriGlobal.__TAURI__ || tauriGlobal.__TAURI_IPC__);
-};
+const isTauriRuntime = () => isTauriEnvironment();
 
 /**
  * 获取当前 Tauri 窗口；浏览器预览环境直接返回空，避免调试时报错

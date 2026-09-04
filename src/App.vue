@@ -12,11 +12,12 @@ import { useWindowControls } from '@/composables/useWindowControls';
 import { useAppNavigation } from '@/composables/useAppNavigation';
 import { useShortcutSync } from '@/composables/useShortcutSync';
 import { useGlobalKeyboard } from '@/composables/useGlobalKeyboard';
+import { isTauriEnvironment } from '@/lib/tauri-env';
 
 const store = useAppStore();
 const { t } = useI18n();
 /** 快速唤起小窗口的 SPA 实例：不渲染主窗口 UI，只渲染 QuickLaunchRoot */
-const isQuickLaunchWindow = getCurrentWindow().label === 'quicklaunch';
+const isQuickLaunchWindow = isTauriEnvironment() && getCurrentWindow().label === 'quicklaunch';
 const { toasts, themeMode, themeSkinId, appBackgroundImage, appBackgroundMode } = storeToRefs(store);
 const DEFAULT_BG_IMAGE = '/backgrounds/landscape-1.jpg';
 
