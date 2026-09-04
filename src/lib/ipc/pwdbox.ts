@@ -12,12 +12,31 @@ export const pwdboxLoad = (): Promise<string | null> => invoke<string | null>('p
 export const pwdboxSave = (data: string): Promise<void> => invoke('pwdbox_save', { data });
 
 /**
+ * 发起系统开机密码 / Windows Hello 身份验证。
+ * 若在 10 分钟免密有效期内，将直接返回 true（不弹窗）。
+ */
+export const pwdboxAuthenticate = (prompt?: string | null): Promise<boolean> =>
+  invoke<boolean>('pwdbox_authenticate', { prompt: prompt ?? null });
+
+/**
+ * 检查当前是否在 10 分钟免密有效期内。
+ */
+export const pwdboxAuthCheck = (): Promise<boolean> => invoke<boolean>('pwdbox_auth_check');
+
+/**
+ * 主动锁定密码夹（清除免密会话）。
+ */
+export const pwdboxAuthLock = (): Promise<void> => invoke<void>('pwdbox_auth_lock');
+
+/**
  * 读取 Curl 请求历史（解密 / 迁移后返回 JSON 字符串；不存在返回 `null`）。
  * 数据由 Rust 侧 AES-256-GCM 加密落盘，与密码夹共用加密实现但使用独立主密钥。
  */
-export const curlStorageLoad = (): Promise<string | null> => invoke<string | null>('curl_storage_load');
+export const curlStorageLoad = (): Promise<string | null> =>
+  invoke<string | null>('curl_storage_load');
 
 /**
  * 加密并落盘 Curl 请求历史 JSON 字符串。
  */
-export const curlStorageSave = (data: string): Promise<void> => invoke('curl_storage_save', { data });
+export const curlStorageSave = (data: string): Promise<void> =>
+  invoke('curl_storage_save', { data });

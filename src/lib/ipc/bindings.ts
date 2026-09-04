@@ -39,6 +39,15 @@ export const commands = {
 	pwdboxLoad: () => typedError<string | null, string>(__TAURI_INVOKE("pwdbox_load")),
 	/**  加密并落盘密码库 JSON 字符串。 */
 	pwdboxSave: (data: string) => typedError<null, string>(__TAURI_INVOKE("pwdbox_save", { data })),
+	/**
+	 *  发起系统开机密码 / Windows Hello 身份验证。
+	 *  若当前在 10 分钟免密有效期内，直接返回 `Ok(true)`。
+	 */
+	pwdboxAuthenticate: (prompt: string | null) => typedError<boolean, string>(__TAURI_INVOKE("pwdbox_authenticate", { prompt })),
+	/**  检查当前是否在 10 分钟免密有效期内。 */
+	pwdboxAuthCheck: () => __TAURI_INVOKE<boolean>("pwdbox_auth_check"),
+	/**  主动锁定密码夹（清除免密会话）。 */
+	pwdboxAuthLock: () => __TAURI_INVOKE<void>("pwdbox_auth_lock"),
 	/**  读取 Curl 请求历史（解密 / 迁移后返回 JSON 字符串；不存在返回 `None`）。 */
 	curlStorageLoad: () => typedError<string | null, string>(__TAURI_INVOKE("curl_storage_load")),
 	/**  加密并落盘 Curl 请求历史 JSON 字符串。 */

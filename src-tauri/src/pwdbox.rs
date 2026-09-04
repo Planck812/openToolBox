@@ -11,6 +11,8 @@
 //! `KeyringStore`（系统凭据库），单测走 `#[cfg(test)]` 的内存实现，避免 CI 无凭据库失败。
 
 use std::path::Path;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use aes_gcm::aead::Aead;
 use aes_gcm::aead::KeyInit;
@@ -240,6 +242,126 @@ pub fn pwdbox_save<R: Runtime>(app: AppHandle<R>, data: String) -> Result<(), Ap
     save_to(&store, &path, &data)
 }
 
+/// 密码夹免密查看/复制有效期：10 分钟。
+pub const AUTH_SESSION_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// 记录最近一次成功验证的时间戳。
+static LAST_AUTH_INSTANT: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// 检查当前是否仍在 10 分钟免密有效期内。
+pub fn is_auth_session_valid() -> bool {
+    let guard = match LAST_AUTH_INSTANT.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    if let Some(instant) = *guard {
+        instant.elapsed() < AUTH_SESSION_TIMEOUT
+    } else {
+        false
+    }
+}
+
+/// 记录一次成功的身份验证时间戳。
+pub fn update_auth_session() {
+    let mut guard = match LAST_AUTH_INSTANT.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    *guard = Some(Instant::now());
+}
+
+/// 清除免密会话（主动锁定）。
+pub fn clear_auth_session() {
+    let mut guard = match LAST_AUTH_INSTANT.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    *guard = None;
+}
+
+#[cfg(windows)]
+fn verify_user_consent(message: &str) -> Result<bool, AppError> {
+    use windows::core::HSTRING;
+    use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
+
+    let _ = unsafe {
+        windows::Win32::System::Com::CoInitializeEx(
+            None,
+            windows::Win32::System::Com::COINIT_MULTITHREADED,
+        )
+    };
+
+    let msg = HSTRING::from(message);
+    let op = UserConsentVerifier::RequestVerificationAsync(&msg)
+        .map_err(|e| AppError::Message(format!("发起系统身份验证失败：{e}")))?;
+    let result = op
+        .get()
+        .map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}")))?;
+
+    match result {
+        UserConsentVerificationResult::Verified => Ok(true),
+        UserConsentVerificationResult::Canceled => Ok(false),
+        UserConsentVerificationResult::DeviceBusy => {
+            Err(AppError::Message("身份验证设备正忙，请重试".to_string()))
+        }
+        UserConsentVerificationResult::RetriesExhausted => {
+            Err(AppError::Message("验证尝试次数过多，请稍后再试".to_string()))
+        }
+        UserConsentVerificationResult::DisabledByPolicy => {
+            Err(AppError::Message("系统策略已禁用身份验证".to_string()))
+        }
+        UserConsentVerificationResult::DeviceNotPresent
+        | UserConsentVerificationResult::NotConfiguredForUser => {
+            Err(AppError::Message(
+                "当前系统未配置 Windows Hello 或开机凭据（PIN/密码）".to_string(),
+            ))
+        }
+        _ => Ok(false),
+    }
+}
+
+#[cfg(not(windows))]
+fn verify_user_consent(_message: &str) -> Result<bool, AppError> {
+    Ok(true)
+}
+
+/// 发起系统开机密码 / Windows Hello 身份验证。
+/// 若当前在 10 分钟免密有效期内，直接返回 `Ok(true)`。
+#[tauri::command]
+#[specta::specta]
+pub async fn pwdbox_authenticate(prompt: Option<String>) -> Result<bool, AppError> {
+    if is_auth_session_valid() {
+        return Ok(true);
+    }
+
+    let message = prompt.unwrap_or_else(|| "请输入电脑开机密码或通过 Windows Hello 验证身份以访问密码".to_string());
+    let verified = tauri::async_runtime::spawn_blocking(move || verify_user_consent(&message))
+        .await
+        .map_err(|e| AppError::Message(format!("验证任务调度失败：{e}")))?;
+
+    if verified? {
+        update_auth_session();
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+/// 检查当前是否在 10 分钟免密有效期内。
+#[tauri::command]
+#[specta::specta]
+pub fn pwdbox_auth_check() -> bool {
+    is_auth_session_valid()
+}
+
+/// 主动锁定密码夹（清除免密会话）。
+#[tauri::command]
+#[specta::specta]
+pub fn pwdbox_auth_lock() {
+    clear_auth_session();
+}
+
+
 /// 解析 Curl 请求历史文件路径（`AppData/curl-requests.json`，与旧 plugin-store 同路径以便原地迁移）。
 fn curl_storage_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, AppError> {
     app.path()
@@ -410,5 +532,17 @@ mod tests {
         let second = get_or_create_key(&store).unwrap();
         assert_eq!(first, second);
         assert_eq!(first.len(), KEY_LEN);
+    }
+
+    #[test]
+    fn auth_session_lifecycle() {
+        clear_auth_session();
+        assert!(!is_auth_session_valid());
+
+        update_auth_session();
+        assert!(is_auth_session_valid());
+
+        clear_auth_session();
+        assert!(!is_auth_session_valid());
     }
 }
