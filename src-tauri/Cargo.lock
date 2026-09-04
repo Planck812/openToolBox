@@ -3693,6 +3693,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "open-toolbox"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "arboard",
+ "base64 0.22.1",
+ "chrono",
+ "fs2",
+ "http",
+ "image",
+ "keyring",
+ "libc",
+ "log",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-store",
+ "tauri-specta",
+ "tempfile",
+ "tesseract-rs",
+ "thiserror 2.0.19",
+ "uuid",
+ "windows",
+ "winreg 0.56.0",
+ "xcap",
+]
+
+[[package]]
 name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5271,48 +5313,6 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-
-[[package]]
-name = "open-toolbox"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "arboard",
- "base64 0.22.1",
- "chrono",
- "fs2",
- "http",
- "image",
- "keyring",
- "libc",
- "log",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-store",
- "tauri-specta",
- "tempfile",
- "tesseract-rs",
- "thiserror 2.0.19",
- "uuid",
- "windows",
- "winreg 0.56.0",
- "xcap",
-]
 
 [[package]]
 name = "socket2"
