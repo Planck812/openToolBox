@@ -295,9 +295,13 @@ pub fn clear_auth_session() {
 }
 
 #[cfg(windows)]
-fn verify_user_consent(message: &str) -> Result<bool, AppError> {
+fn verify_user_consent(
+    message: &str,
+    hwnd: Option<windows::Win32::Foundation::HWND>,
+) -> Result<bool, AppError> {
     use windows::core::HSTRING;
     use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
+    use windows::Win32::System::WinRT::{RoGetActivationFactory, IUserConsentVerifierInterop};
 
     let _ = unsafe {
         windows::Win32::System::Com::CoInitializeEx(
@@ -307,11 +311,38 @@ fn verify_user_consent(message: &str) -> Result<bool, AppError> {
     };
 
     let msg = HSTRING::from(message);
-    let op = UserConsentVerifier::RequestVerificationAsync(&msg)
-        .map_err(|e| AppError::Message(format!("发起系统身份验证失败：{e}")))?;
-    let result = op
-        .get()
-        .map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}")))?;
+
+    // 优先使用 IUserConsentVerifierInterop 绑定宿主窗口句柄（HWND），
+    // 确保 Windows Hello 对话框直接在前台居中作为模态弹窗弹出，避免被系统判定为无主窗口而最小化或隐藏到后台。
+    let result = if let Some(parent_hwnd) = hwnd {
+        let interop_res: windows::core::Result<IUserConsentVerifierInterop> = unsafe {
+            RoGetActivationFactory(&HSTRING::from("Windows.Security.Credentials.UI.UserConsentVerifier"))
+        };
+        match interop_res {
+            Ok(interop) => {
+                let op: windows::core::Result<windows_future::IAsyncOperation<UserConsentVerificationResult>> = unsafe {
+                    interop.RequestVerificationForWindowAsync(parent_hwnd, &msg)
+                };
+                match op {
+                    Ok(async_op) => async_op.get().map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}"))),
+                    Err(_) => {
+                        let op = UserConsentVerifier::RequestVerificationAsync(&msg)
+                            .map_err(|e| AppError::Message(format!("发起系统身份验证失败：{e}")))?;
+                        op.get().map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}")))
+                    }
+                }
+            }
+            Err(_) => {
+                let op = UserConsentVerifier::RequestVerificationAsync(&msg)
+                    .map_err(|e| AppError::Message(format!("发起系统身份验证失败：{e}")))?;
+                op.get().map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}")))
+            }
+        }
+    } else {
+        let op = UserConsentVerifier::RequestVerificationAsync(&msg)
+            .map_err(|e| AppError::Message(format!("发起系统身份验证失败：{e}")))?;
+        op.get().map_err(|e| AppError::Message(format!("等待系统身份验证结果失败：{e}")))
+    }?;
 
     match result {
         UserConsentVerificationResult::Verified => Ok(true),
@@ -344,15 +375,37 @@ fn verify_user_consent(_message: &str) -> Result<bool, AppError> {
 /// 若当前在 10 分钟免密有效期内，直接返回 `Ok(true)`。
 #[tauri::command]
 #[specta::specta]
-pub async fn pwdbox_authenticate(prompt: Option<String>) -> Result<bool, AppError> {
+pub async fn pwdbox_authenticate<R: Runtime>(
+    app: AppHandle<R>,
+    prompt: Option<String>,
+) -> Result<bool, AppError> {
     if is_auth_session_valid() {
         return Ok(true);
     }
 
     let message = prompt.unwrap_or_else(|| "请输入电脑开机密码或通过 Windows Hello 验证身份以访问密码".to_string());
-    let verified = tauri::async_runtime::spawn_blocking(move || verify_user_consent(&message))
-        .await
-        .map_err(|e| AppError::Message(format!("验证任务调度失败：{e}")))?;
+
+    #[cfg(windows)]
+    let raw_hwnd: Option<isize> = {
+        let win = app.get_webview_window("main").or_else(|| {
+            app.webview_windows().into_values().next()
+        });
+        win.and_then(|w| w.hwnd().ok()).map(|h| h.0 as isize)
+    };
+
+    let verified = tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(windows)]
+        {
+            let hwnd = raw_hwnd.map(|val| windows::Win32::Foundation::HWND(val as *mut core::ffi::c_void));
+            verify_user_consent(&message, hwnd)
+        }
+        #[cfg(not(windows))]
+        {
+            verify_user_consent(&message)
+        }
+    })
+    .await
+    .map_err(|e| AppError::Message(format!("验证任务调度失败：{e}")))?;
 
     if verified? {
         update_auth_session();
