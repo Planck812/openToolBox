@@ -222,6 +222,7 @@
     "upload_background": "Upload background",
     "default_background": "Default background",
     "no_background": "No background",
+    "section_language": "Language",
     "toast_select_image": "Please select an image file",
     "toast_image_too_large": "Background image exceeds the 2MB limit, please choose a smaller image",
     "toast_read_failed": "Failed to read image",
@@ -1790,16 +1791,6 @@
       "alert_close": "Close",
       "alert_confirm": "OK"
     }
-  },
-  "settings": {
-    "nav_group_appearance": "Appearance",
-    "nav_group_shortcuts": "Shortcuts",
-    "section_theme": "Theme",
-    "section_background": "Background",
-    "section_motion": "Motion",
-    "section_language": "Language",
-    "toast_select_image": "Please select an image file",
-    "toast_image_too_large": "Image too large (limit 2MB)",
-    "toast_read_failed": "Failed to read image"
   }
 }
+

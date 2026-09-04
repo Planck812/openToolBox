@@ -222,6 +222,7 @@
     "upload_background": "上传背景图",
     "default_background": "默认背景图",
     "no_background": "不使用背景图",
+    "section_language": "语言",
     "toast_select_image": "请选择图片文件",
     "toast_image_too_large": "背景图片超过 2MB 上限，请选择更小的图片",
     "toast_read_failed": "读取图片失败",
@@ -1790,16 +1791,6 @@
       "alert_close": "关闭",
       "alert_confirm": "确定"
     }
-  },
-  "settings": {
-    "nav_group_appearance": "外观",
-    "nav_group_shortcuts": "快捷键",
-    "section_theme": "主题",
-    "section_background": "背景",
-    "section_motion": "动画",
-    "section_language": "语言",
-    "toast_select_image": "请选择图片文件",
-    "toast_image_too_large": "图片过大（限制 2MB）",
-    "toast_read_failed": "图片读取失败"
   }
 }
+
