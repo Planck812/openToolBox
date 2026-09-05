@@ -31,7 +31,7 @@ describe('二维码/条形码页面布局', () => {
     setActivePinia(pinia);
   });
 
-  it('生成模式在窄布局下不应将表单区与预览区强制压成等高两半', () => {
+  it('生成模式初始状态只展示输入框与配置，不展示预览框', () => {
     const pinia = createPinia();
     const wrapper = mount(QRCodeGen, {
       global: {
@@ -39,32 +39,19 @@ describe('二维码/条形码页面布局', () => {
       },
     });
 
-    const generateLayout = wrapper.find('[data-testid="generate-layout"]');
-    const formPanel = wrapper.find('[data-testid="generate-form-panel"]');
-    const previewPanel = wrapper.find('[data-testid="generate-preview-panel"]');
+    const input = wrapper.find('[data-testid="qrcode-generate-input"]');
+    const generateBtn = wrapper.find('[data-testid="qrcode-generate-btn"]');
+    const resultImages = wrapper.findAll('[data-testid="qrcode-result-image"]');
+    const regenerateBtn = wrapper.find('[data-testid="qrcode-regenerate-btn"]');
 
-    expect(generateLayout.exists()).toBe(true);
-    // 布局为 grid：移动端单列堆叠，桌面端 30/70 双列（grid-cols-1 → lg:grid-cols-[...]）。
-    expect(generateLayout.classes()).toContain('grid');
-    expect(generateLayout.classes()).toContain('grid-cols-1');
-    expect(generateLayout.classes()).not.toContain('flex-1');
-    expect(generateLayout.classes()).toContain('lg:flex-1');
-    expect(generateLayout.classes().some((c) => c.startsWith('lg:grid-cols-['))).toBe(true);
-
-    expect(formPanel.exists()).toBe(true);
-    expect(formPanel.classes()).not.toContain('flex-1');
-    expect(formPanel.classes()).toContain('shrink-0');
-    expect(formPanel.classes()).toContain('lg:min-w-0');
-    expect(formPanel.classes()).toContain('overflow-visible');
-    expect(formPanel.classes()).toContain('lg:overflow-y-auto');
-
-    expect(previewPanel.exists()).toBe(true);
-    expect(previewPanel.classes()).toContain('min-h-[260px]');
-    expect(previewPanel.classes()).toContain('shrink-0');
-    expect(previewPanel.classes()).toContain('lg:min-w-0');
+    expect(input.exists()).toBe(true);
+    expect(generateBtn.exists()).toBe(true);
+    expect(generateBtn.attributes('disabled')).toBeDefined();
+    expect(resultImages).toHaveLength(0);
+    expect(regenerateBtn.exists()).toBe(false);
   });
 
-  it('二维码模式应按输入的每个非空行分别生成一张二维码并支持左右切换', async () => {
+  it('二维码模式应按输入的每个非空行分别生成二维码并在网格展示，且支持重新生成', async () => {
     const pinia = createPinia();
     const wrapper = mount(QRCodeGen, {
       global: {
@@ -75,30 +62,40 @@ describe('二维码/条形码页面布局', () => {
     const input = wrapper.find('[data-testid="qrcode-generate-input"]');
     await input.setValue('U-1-20260424-9000001-20879108\n\nU-1-20260424-9000002-20879108\nU-1-20260424-9000003-20879108');
     await flushPromises();
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+    const generateBtn = wrapper.find('[data-testid="qrcode-generate-btn"]');
+    expect(generateBtn.attributes('disabled')).toBeUndefined();
+    await generateBtn.trigger('click');
     await flushPromises();
 
     const images = wrapper.findAll('[data-testid="qrcode-result-image"]');
-    expect(images).toHaveLength(1);
-    expect(wrapper.find('[data-testid="qrcode-result-text"]').text()).toContain('U-1-20260424-9000001-20879108');
-    expect(wrapper.find('[data-testid="qrcode-result-counter"]').text()).toContain('1 / 3');
+    expect(images).toHaveLength(3);
 
-    await wrapper.find('[data-testid="qrcode-next-button"]').trigger('click');
-    await flushPromises();
+    const resultTexts = wrapper.findAll('[data-testid="qrcode-result-text"]');
+    expect(resultTexts).toHaveLength(3);
+    expect(resultTexts[0].text()).toContain('U-1-20260424-9000001-20879108');
+    expect(resultTexts[1].text()).toContain('U-1-20260424-9000002-20879108');
+    expect(resultTexts[2].text()).toContain('U-1-20260424-9000003-20879108');
 
-    expect(wrapper.find('[data-testid="qrcode-result-text"]').text()).toContain('U-1-20260424-9000002-20879108');
-    expect(wrapper.find('[data-testid="qrcode-result-counter"]').text()).toContain('2 / 3');
-
-    await wrapper.find('[data-testid="qrcode-prev-button"]').trigger('click');
-    await flushPromises();
-
-    expect(wrapper.find('[data-testid="qrcode-result-text"]').text()).toContain('U-1-20260424-9000001-20879108');
     expect(qrcodeRuntimeMock.generateQRCode).toHaveBeenCalledWith('U-1-20260424-9000001-20879108', expect.any(Object));
     expect(qrcodeRuntimeMock.generateQRCode).toHaveBeenCalledWith('U-1-20260424-9000002-20879108', expect.any(Object));
     expect(qrcodeRuntimeMock.generateQRCode).toHaveBeenCalledWith('U-1-20260424-9000003-20879108', expect.any(Object));
+
+    // 生成后状态：带有重新生成按钮
+    const regenerateBtn = wrapper.find('[data-testid="qrcode-regenerate-btn"]');
+    expect(regenerateBtn.exists()).toBe(true);
+
+    // 点击重新生成：切回初始文本输入框，保留用户输入内容
+    await regenerateBtn.trigger('click');
+    await flushPromises();
+
+    const revertedInput = wrapper.find('[data-testid="qrcode-generate-input"]');
+    expect(revertedInput.exists()).toBe(true);
+    expect((revertedInput.element as HTMLTextAreaElement).value).toContain('U-1-20260424-9000001-20879108');
+    expect(wrapper.find('[data-testid="qrcode-generate-btn"]').exists()).toBe(true);
   });
 
-  it('条形码模式应按输入的每个非空行分别生成一张条形码并支持左右切换', async () => {
+  it('条形码模式应按输入的每个非空行分别生成一张条形码', async () => {
     const pinia = createPinia();
     const wrapper = mount(QRCodeGen, {
       global: {
@@ -109,23 +106,25 @@ describe('二维码/条形码页面布局', () => {
     const barcodeButton = wrapper.findAll('button').find((button) => button.text() === 'tools.qrcode_gen.tab_barcode');
     expect(barcodeButton).toBeTruthy();
     await barcodeButton!.trigger('click');
+    await flushPromises();
 
     const input = wrapper.find('[data-testid="qrcode-generate-input"]');
     await input.setValue('A10001\n\nA10002\nA10003');
     await flushPromises();
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+    const generateBtn = wrapper.find('[data-testid="qrcode-generate-btn"]');
+    await generateBtn.trigger('click');
     await flushPromises();
 
     const images = wrapper.findAll('[data-testid="qrcode-result-image"]');
-    expect(images).toHaveLength(1);
-    expect(wrapper.find('[data-testid="qrcode-result-text"]').text()).toContain('A10001');
-    expect(wrapper.find('[data-testid="qrcode-result-counter"]').text()).toContain('1 / 3');
+    expect(images).toHaveLength(3);
 
-    await wrapper.find('[data-testid="qrcode-next-button"]').trigger('click');
-    await flushPromises();
+    const resultTexts = wrapper.findAll('[data-testid="qrcode-result-text"]');
+    expect(resultTexts).toHaveLength(3);
+    expect(resultTexts[0].text()).toContain('A10001');
+    expect(resultTexts[1].text()).toContain('A10002');
+    expect(resultTexts[2].text()).toContain('A10003');
 
-    expect(wrapper.find('[data-testid="qrcode-result-text"]').text()).toContain('A10002');
-    expect(wrapper.find('[data-testid="qrcode-result-counter"]').text()).toContain('2 / 3');
     expect(qrcodeRuntimeMock.generateBarcode).toHaveBeenCalledWith('A10001', expect.any(Object));
     expect(qrcodeRuntimeMock.generateBarcode).toHaveBeenCalledWith('A10002', expect.any(Object));
     expect(qrcodeRuntimeMock.generateBarcode).toHaveBeenCalledWith('A10003', expect.any(Object));

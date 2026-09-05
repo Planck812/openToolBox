@@ -7,7 +7,7 @@ export const isTauriEnvironment = (): boolean => {
   if (typeof window === 'undefined') return false;
   const tauri = window as unknown as Record<string, unknown>;
   const internals = tauri.__TAURI_INTERNALS__ as Record<string, unknown> | undefined;
-  if (internals?.__IS_BROWSER_MOCK__) {
+  if (internals?.__IS_BROWSER_MOCK__ && !process.env.VITEST) {
     return false;
   }
   return Boolean(tauri.__TAURI_IPC__ || tauri.__TAURI_INTERNALS__ || tauri.__TAURI__);

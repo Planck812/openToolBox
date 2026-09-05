@@ -99,8 +99,8 @@ const startPomodoroPolling = () => {
   pomodoroTimer = setInterval(() => void poll(), 1000);
 };
 
-/** Esc / 点窗外 / 被动关闭的默认动作：闹钟贪睡，其余关闭。 */
-const defaultAction = (): string => (kind.value === 'alarm' ? 'snooze' : 'dismiss');
+/** Esc / 点窗外 / 被动关闭的默认动作：闹钟直接关闭，其余 dismiss。 */
+const defaultAction = (): string => (kind.value === 'alarm' ? 'close' : 'dismiss');
 
 /** 发送弹窗动作并关窗。 */
 const sendAction = async (action: string) => {
@@ -197,15 +197,6 @@ onUnmounted(() => {
       </div>
       <div v-else class="timer-message">{{ payload.message }}</div>
       <div v-if="!payload.autoDismiss" class="timer-actions">
-        <button
-          v-if="payload.showSnooze"
-          class="timer-btn timer-btn-ghost"
-          @mousedown="clickingButton = true"
-          @mouseup="clickingButton = false"
-          @click="sendAction('snooze')"
-        >
-          {{ t('tools.timer_center.alert_snooze') }}
-        </button>
         <button
           v-if="payload.showSkip"
           class="timer-btn timer-btn-ghost"

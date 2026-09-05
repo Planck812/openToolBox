@@ -16,6 +16,14 @@ vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({
   writeText: (value: string) => writeTextMock(value),
 }));
 
+vi.mock('@/lib/ipc/pwdbox', () => ({
+  pwdboxAuthenticate: vi.fn().mockResolvedValue(true),
+  pwdboxAuthCheck: vi.fn().mockResolvedValue(true),
+  pwdboxAuthLock: vi.fn().mockResolvedValue(undefined),
+  pwdboxLoad: vi.fn(),
+  pwdboxSave: vi.fn(),
+}));
+
 describe('密码夹工具', () => {
   beforeEach(() => {
     const pinia = createPinia();

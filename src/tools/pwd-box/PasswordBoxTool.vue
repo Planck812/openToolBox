@@ -256,6 +256,29 @@ const runGeneratePassword = () => {
   }
 };
 
+const onPasswordInputChange = async (event: Event, item: PasswordBoxItem) => {
+  const target = event.target as HTMLInputElement;
+  const currentPassword = item.password;
+  const newPassword = target.value;
+  if (newPassword === currentPassword) {
+    return;
+  }
+
+  if (currentPassword) {
+    const confirmed = window.confirm(t('tools.pwd_box.modify_password_confirm'));
+    if (!confirmed) {
+      target.value = currentPassword;
+      return;
+    }
+  }
+
+  const timestamp = new Date().toISOString();
+  items.value = items.value.map((i) =>
+    i.id === item.id ? updatePasswordBoxItem(i, { password: newPassword }, timestamp) : i,
+  );
+  await persistItems();
+};
+
 const fillGeneratedPassword = async () => {
   if (!selectedItem.value) {
     appStore.showToast(t('tools.pwd_box.gen_fill_no_selection'), { type: 'error' });
@@ -263,6 +286,16 @@ const fillGeneratedPassword = async () => {
   }
   if (!generatedPassword.value) {
     return;
+  }
+
+  if (
+    selectedItem.value.password &&
+    selectedItem.value.password !== generatedPassword.value
+  ) {
+    const confirmed = window.confirm(t('tools.pwd_box.modify_password_confirm'));
+    if (!confirmed) {
+      return;
+    }
   }
 
   await patchSelectedItem({ password: generatedPassword.value });
@@ -558,7 +591,7 @@ onUnmounted(() => {
               :type="isPasswordVisible(selectedItem.id) ? 'text' : 'password'"
               class="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
               :placeholder="t('tools.pwd_box.password_placeholder')"
-              @input="patchSelectedItem({ password: ($event.target as HTMLInputElement).value })"
+              @change="onPasswordInputChange($event, selectedItem)"
             />
 
             <div class="rounded-lg border border-border/80 bg-muted/20">

@@ -236,3 +236,26 @@ describe('error handling', () => {
     expect(text).toBe('HELLO');
   });
 });
+
+describe('default builtin pipelines execution', () => {
+  const sampleInput = `apple
+banana
+apple
+  orange  
+
+banana`;
+
+  it('runs 快速合并: dedup and join with comma', async () => {
+    const { DEFAULT_BUILTIN_PIPELINES } = await import('../pipeline-store');
+    const p = DEFAULT_BUILTIN_PIPELINES.find((item) => item.name === '快速合并')!;
+    const { text } = await runPipeline(sampleInput, p.steps, deps);
+    expect(text).toBe('apple,banana,orange');
+  });
+
+  it('runs 引号合并: dedup, single quote, and join with comma', async () => {
+    const { DEFAULT_BUILTIN_PIPELINES } = await import('../pipeline-store');
+    const p = DEFAULT_BUILTIN_PIPELINES.find((item) => item.name === '引号合并')!;
+    const { text } = await runPipeline(sampleInput, p.steps, deps);
+    expect(text).toBe("'apple','banana','orange'");
+  });
+});

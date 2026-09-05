@@ -1,9 +1,9 @@
 {
   "tools": {
     "totp_2fa": {
-      "name": "2FA / TOTP",
+      "name": "2FA",
       "description": "基于 Base32 密钥或 otpauth URI 生成与校验 TOTP 动态验证码",
-      "title": "2FA / TOTP",
+      "title": "2FA",
       "subtitle": "生成、刷新并校验基于时间的一次性密码",
       "secret_label": "密钥 (Base32)",
       "secret_placeholder": "输入 Base32 密钥，或粘贴 otpauth:// URI",

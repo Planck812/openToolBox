@@ -2,16 +2,15 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAppStore } from '@/store/app';
-import { useResizablePanel } from '@/lib/use-resizable-panel';
 import { Image as TauriImage } from '@tauri-apps/api/image';
 import { writeImage } from '@tauri-apps/plugin-clipboard-manager';
 import { copyText } from '@/lib/clipboard';
 import { useQrRecognizer } from '@/composables/useQrRecognizer';
 import {
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Download,
+  FileText,
+  Play,
   RefreshCw,
   Trash2,
 } from 'lucide-vue-next';
@@ -34,6 +33,11 @@ interface Props {
   initialData?: string;
 }
 
+interface GeneratedItem {
+  text: string;
+  image: string;
+}
+
 const props = defineProps<Props>();
 const { t } = useI18n();
 const store = useAppStore();
@@ -42,12 +46,9 @@ const activeMode = ref<ToolMode>('generate');
 const activeTab = ref<GenType>('qrcode');
 
 const inputText = ref('');
-const resultImage = ref('');
-const generatePanels = useResizablePanel({ minFirstWidth: 320, minSecondWidth: 320 });
-const resultImages = ref<string[]>([]);
-const resultTexts = ref<string[]>([]);
-const currentResultIndex = ref(0);
+const isGenerated = ref(false);
 const isGenerating = ref(false);
+const generatedItems = ref<GeneratedItem[]>([]);
 const errorMsg = ref('');
 
 const isRecognizing = ref(false);
@@ -73,54 +74,30 @@ const barcodeOptions = ref<BarcodeOptions>({
   margin: 10,
 });
 
-let debounceTimer: number | null = null;
 const pasteListenerCapture = true;
-// 参照 text-processor 的 pendingLaunchTarget 守卫：initialData 已直接生成时，跳过紧随其后的防抖二次生成。
-const suppressNextGenerate = ref(false);
-
-const currentResultImage = computed(() => resultImages.value[currentResultIndex.value] ?? '');
-const currentResultText = computed(() => resultTexts.value[currentResultIndex.value] ?? '');
-const hasMultipleResults = computed(() => resultImages.value.length > 1);
-
-/**
- * 将当前展示下标限制在结果范围内，重新生成或清空时保持状态稳定。
- */
-const normalizeCurrentResultIndex = () => {
-  if (!resultImages.value.length) {
-    currentResultIndex.value = 0;
-    return;
-  }
-
-  currentResultIndex.value = Math.min(currentResultIndex.value, resultImages.value.length - 1);
-};
-
-const showPrevResult = () => {
-  if (!resultImages.value.length) {
-    return;
-  }
-
-  currentResultIndex.value = (currentResultIndex.value - 1 + resultImages.value.length) % resultImages.value.length;
-};
-
-const showNextResult = () => {
-  if (!resultImages.value.length) {
-    return;
-  }
-
-  currentResultIndex.value = (currentResultIndex.value + 1) % resultImages.value.length;
-};
 
 /**
  * 将文本写入系统剪贴板
  */
-const { recognitionPreviewUrl, recognitionFileName, recognitionResult, recognitionError, revokeRecognitionUrl, loadImageElement, resetRecognitionState, recognizeFromPreview, recognizeFromClipboardImage } = useQrRecognizer({ activeMode });
+const {
+  recognitionPreviewUrl,
+  recognitionFileName,
+  recognitionResult,
+  recognitionError,
+  revokeRecognitionUrl,
+  loadImageElement,
+  resetRecognitionState,
+  recognizeFromPreview,
+  recognizeFromClipboardImage,
+} = useQrRecognizer({ activeMode });
+
 const copyTextToClipboard = async (text: string) => {
   const ok = await copyText(text);
   if (!ok) throw new Error('clipboard-write-unavailable');
 };
 
 /**
- * 将生成结果的 Data URL 解析为可复用的图片字节，避免依赖桌面端对 data: fetch 的支持
+ * 将生成结果的 Data URL 解析为可复用的图片字节
  */
 const decodeImageDataUrl = (dataUrl: string) => {
   const matched = dataUrl.match(/^data:([^;,]+);base64,(.+)$/);
@@ -160,8 +137,8 @@ const createClipboardImageFromDataUrl = async (dataUrl: string) => {
   return TauriImage.new(imageData.data, width, height);
 };
 
-/** 多行输入的最大生成数量：避免每行一张整幅位图常驻内存（如 100 行 = 100 张位图）。 */
-const MAX_GENERATE_RESULTS = 50;
+/** 多行输入的最大生成数量 */
+const MAX_GENERATE_RESULTS = 100;
 
 /**
  * 将输入按行拆分为待生成内容，空行不参与生成；超出上限的行被舍弃。
@@ -173,17 +150,15 @@ const getGenerateLines = () =>
     .filter(Boolean)
     .slice(0, MAX_GENERATE_RESULTS);
 
+const hasInputLines = computed(() => getGenerateLines().length > 0);
+
 /**
- * 根据当前输入与配置生成二维码或条形码
+ * 点击生成：根据当前输入与配置生成二维码或条形码
  */
-const generate = async () => {
+const handleGenerate = async () => {
   const lines = getGenerateLines();
   if (!lines.length) {
-    resultImage.value = '';
-    resultImages.value = [];
-    resultTexts.value = [];
-    currentResultIndex.value = 0;
-    errorMsg.value = '';
+    store.showToast(t('tools.qrcode_gen.input_empty_warning'), { type: 'warning' });
     return;
   }
 
@@ -191,54 +166,49 @@ const generate = async () => {
   errorMsg.value = '';
 
   try {
+    const items: GeneratedItem[] = [];
     if (activeTab.value === 'qrcode') {
-      resultTexts.value = lines;
-      resultImages.value = await Promise.all(lines.map((line) => generateQRCode(line, qrOptions.value)));
-      normalizeCurrentResultIndex();
-      resultImage.value = currentResultImage.value;
+      const images = await Promise.all(
+        lines.map((line) => generateQRCode(line, qrOptions.value))
+      );
+      for (let i = 0; i < lines.length; i++) {
+        items.push({ text: lines[i], image: images[i] });
+      }
     } else {
-      resultTexts.value = lines;
-      resultImages.value = lines.map((line) => generateBarcode(line, barcodeOptions.value));
-      normalizeCurrentResultIndex();
-      resultImage.value = currentResultImage.value;
+      for (const line of lines) {
+        const image = generateBarcode(line, barcodeOptions.value);
+        items.push({ text: line, image });
+      }
     }
+    generatedItems.value = items;
+    isGenerated.value = true;
   } catch (error) {
-    resultImage.value = '';
-    resultImages.value = [];
-    resultTexts.value = [];
-    currentResultIndex.value = 0;
-    errorMsg.value = t('tools.qrcode_gen.gen_failed', {
-      reason: error instanceof Error ? error.message : String(error),
-    });
+    generatedItems.value = [];
+    const reason = error instanceof Error ? error.message : String(error);
+    errorMsg.value = t('tools.qrcode_gen.gen_failed', { reason });
+    store.showToast(errorMsg.value, { type: 'error' });
   } finally {
     isGenerating.value = false;
   }
 };
 
 /**
- * 对生成操作做轻量防抖，避免连续输入时频繁重绘
+ * 点击重新生成：切回初始文本输入框，保留用户输入内容
  */
-const triggerGenerate = () => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
-  debounceTimer = window.setTimeout(() => {
-    void generate();
-  }, 300);
+const handleRegenerate = () => {
+  isGenerated.value = false;
 };
 
 /**
- * 下载当前生成图片
+ * 单项图片下载
  */
-const downloadImage = () => {
-  if (!currentResultImage.value) {
-    return;
-  }
+const downloadSingleImage = (image: string, text: string, index: number) => {
+  if (!image) return;
 
   const link = document.createElement('a');
-  link.href = currentResultImage.value;
-  link.download = `${activeTab.value}-${Date.now()}.png`;
+  link.href = image;
+  const safeSnippet = text.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '_').slice(0, 20);
+  link.download = `${activeTab.value}-${index + 1}${safeSnippet ? `-${safeSnippet}` : ''}.png`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -246,19 +216,30 @@ const downloadImage = () => {
 };
 
 /**
- * 复制当前生成图片
+ * 批量下载所有生成的图片
  */
-const copyImage = async () => {
-  if (!currentResultImage.value) {
-    return;
+const downloadAll = async () => {
+  for (let i = 0; i < generatedItems.value.length; i++) {
+    const item = generatedItems.value[i];
+    downloadSingleImage(item.image, item.text, i);
+    if (i < generatedItems.value.length - 1) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
   }
+};
+
+/**
+ * 单项图片复制
+ */
+const copySingleImage = async (image: string) => {
+  if (!image) return;
 
   try {
-    const { mimeType, bytes } = decodeImageDataUrl(currentResultImage.value);
+    const { mimeType, bytes } = decodeImageDataUrl(image);
 
     try {
-      const image = await createClipboardImageFromDataUrl(currentResultImage.value);
-      await writeImage(image);
+      const tauriImage = await createClipboardImageFromDataUrl(image);
+      await writeImage(tauriImage);
     } catch {
       if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
         throw new Error('clipboard-image-write-unavailable');
@@ -278,14 +259,24 @@ const copyImage = async () => {
 };
 
 /**
+ * 单项文本复制
+ */
+const copySingleText = async (text: string) => {
+  try {
+    await copyTextToClipboard(text);
+    store.showToast(t('tools.qrcode_gen.copy_text_success'), { type: 'success' });
+  } catch {
+    store.showToast(t('tools.qrcode_gen.copy_failed'), { type: 'error' });
+  }
+};
+
+/**
  * 清空生成区域
  */
 const clearGenerate = () => {
   inputText.value = '';
-  resultImage.value = '';
-  resultImages.value = [];
-  resultTexts.value = [];
-  currentResultIndex.value = 0;
+  generatedItems.value = [];
+  isGenerated.value = false;
   errorMsg.value = '';
 };
 
@@ -312,6 +303,16 @@ const clearCurrentMode = () => {
   }
 
   clearRecognition();
+};
+
+/**
+ * 切换生成类型时若在编辑态则保持，若在已生成态则切回未生成
+ */
+const onTabChange = (tab: GenType) => {
+  activeTab.value = tab;
+  if (isGenerated.value) {
+    isGenerated.value = false;
+  }
 };
 
 /**
@@ -383,7 +384,7 @@ const handleRecognitionFile = async (file: File) => {
 };
 
 /**
- * 处理剪贴板粘贴时的图片识别，优先读取系统剪贴板图像以绕开 WebView 的图片兼容问题
+ * 处理剪贴板粘贴时的图片识别
  */
 const handlePastedRecognitionFile = async (file: File) => {
   if (!isImageFile(file)) {
@@ -416,7 +417,7 @@ const handleFileChange = (event: Event) => {
 };
 
 /**
- * 处理全局图片粘贴，文本粘贴仍交给当前输入框
+ * 处理全局图片粘贴
  */
 const handlePaste = (event: ClipboardEvent) => {
   const file = extractImageFileFromClipboardItems(event.clipboardData?.items);
@@ -434,48 +435,10 @@ watch(
     if (!newVal) {
       return;
     }
-
-    const shouldGenerate = activeMode.value === 'generate';
-    suppressNextGenerate.value = shouldGenerate;
     inputText.value = newVal;
-    if (shouldGenerate) {
-      void generate();
-    }
+    isGenerated.value = false;
   },
   { immediate: true },
-);
-
-watch([inputText, activeTab], () => {
-  if (activeMode.value !== 'generate') {
-    return;
-  }
-
-  if (suppressNextGenerate.value) {
-    suppressNextGenerate.value = false;
-    return;
-  }
-
-  triggerGenerate();
-});
-
-watch(
-  qrOptions,
-  () => {
-    if (activeMode.value === 'generate' && activeTab.value === 'qrcode') {
-      triggerGenerate();
-    }
-  },
-  { deep: true },
-);
-
-watch(
-  barcodeOptions,
-  () => {
-    if (activeMode.value === 'generate' && activeTab.value === 'barcode') {
-      triggerGenerate();
-    }
-  },
-  { deep: true },
 );
 
 onMounted(() => {
@@ -483,10 +446,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
   window.removeEventListener('paste', handlePaste, pasteListenerCapture);
   revokeRecognitionUrl();
 });
@@ -497,6 +456,7 @@ onBeforeUnmount(() => {
     data-testid="qrcode-root"
     class="h-full flex flex-col p-4 gap-4 bg-background text-foreground min-h-0 overflow-auto"
   >
+    <!-- 顶部模式与操作条 -->
     <div class="border-b border-border pb-3 flex flex-col gap-3">
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-2">
@@ -525,8 +485,9 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
+      <!-- 类型切换（仅在未生成时显示） -->
       <div
-        v-if="activeMode === 'generate'"
+        v-if="activeMode === 'generate' && !isGenerated"
         class="relative grid w-fit max-w-fit self-start grid-cols-2 overflow-hidden rounded-xl border border-border bg-muted/50 p-1"
       >
         <div
@@ -538,7 +499,7 @@ onBeforeUnmount(() => {
           :class="activeTab === 'qrcode'
             ? 'text-primary-foreground'
             : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'qrcode'"
+          @click="onTabChange('qrcode')"
         >
           {{ t('tools.qrcode_gen.tab_qrcode') }}
         </button>
@@ -547,33 +508,30 @@ onBeforeUnmount(() => {
           :class="activeTab === 'barcode'
             ? 'text-primary-foreground'
             : 'text-muted-foreground hover:text-foreground'"
-          @click="activeTab = 'barcode'"
+          @click="onTabChange('barcode')"
         >
           {{ t('tools.qrcode_gen.tab_barcode') }}
         </button>
       </div>
     </div>
 
-    <div
-      v-if="activeMode === 'generate'"
-      :ref="generatePanels.containerRef"
-      data-testid="generate-layout"
-      class="grid grid-cols-1 gap-4 min-h-0 lg:flex-1 lg:grid-cols-[minmax(320px,var(--panel-first-width,1fr))_minmax(320px,1fr)]"
-      :style="{ '--panel-first-width': generatePanels.firstPanelWidth === null ? undefined : `${generatePanels.firstPanelWidth}px` }"
-    >
-      <div
-        :ref="generatePanels.firstPanelRef"
-        data-testid="generate-form-panel"
-        class="relative shrink-0 flex flex-col gap-4 min-h-0 overflow-visible lg:min-w-0 lg:overflow-y-auto"
-      >
+    <!-- 生成模式 -->
+    <div v-if="activeMode === 'generate'" class="flex-1 flex flex-col gap-4 min-h-0">
+      <!-- 初始未生成状态：不展示预览框，仅展示输入框与生成设置 -->
+      <div v-if="!isGenerated" class="flex flex-col gap-4 max-w-3xl">
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium">{{ t('tools.qrcode_gen.input_label') }}</label>
+          <div class="flex items-center justify-between">
+            <label class="text-sm font-medium">{{ t('tools.qrcode_gen.input_label') }}</label>
+            <span class="text-xs text-muted-foreground">{{ t('tools.qrcode_gen.input_hint') }}</span>
+          </div>
           <div class="generate-input-shell">
             <textarea
               v-model="inputText"
               data-testid="qrcode-generate-input"
-              class="block w-full h-32 p-3 bg-transparent font-mono text-sm resize-none border-0 outline-none focus:outline-none"
+              class="block w-full h-36 p-3 bg-transparent font-mono text-sm resize-none border-0 outline-none focus:outline-none"
               :placeholder="t('tools.qrcode_gen.input_placeholder')"
+              @keydown.ctrl.enter="handleGenerate"
+              @keydown.meta.enter="handleGenerate"
             ></textarea>
           </div>
         </div>
@@ -583,98 +541,134 @@ onBeforeUnmount(() => {
           v-model:barcode-options="barcodeOptions"
           :tab="activeTab"
         />
-        <div class="resizable-panel-divider" role="separator" :aria-label="t('tools.qrcode_gen.resize_aria')" aria-orientation="vertical" tabindex="0" @pointerdown.prevent="generatePanels.startResize" @keydown="generatePanels.handleResizeKeydown"></div>
+
+        <div>
+          <button
+            data-testid="qrcode-generate-btn"
+            type="button"
+            class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            :disabled="!hasInputLines || isGenerating"
+            @click="handleGenerate"
+          >
+            <RefreshCw v-if="isGenerating" class="w-4 h-4 animate-spin" />
+            <Play v-else class="w-4 h-4 fill-current" />
+            {{ t('tools.qrcode_gen.btn_generate') }}
+          </button>
+        </div>
+
+        <div v-if="errorMsg" class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">
+          {{ errorMsg }}
+        </div>
       </div>
 
-      <div
-        data-testid="generate-preview-panel"
-        class="shrink-0 min-h-[260px] flex flex-col gap-4 min-h-0 bg-muted/10 rounded-lg p-4 border border-border lg:min-w-0"
-      >
-        <div class="flex items-center justify-between">
-          <label class="text-sm font-medium">{{ t('tools.qrcode_gen.preview_title') }}</label>
-          <div class="flex items-center gap-2">
-            <button
-              class="p-2 rounded hover:bg-muted transition-colors disabled:opacity-50"
-              :disabled="!resultImage"
-              :title="t('tools.qrcode_gen.copy_btn')"
-              @click="copyImage"
-            >
-              <Copy class="w-4 h-4" />
-            </button>
-            <button
-              class="p-2 rounded hover:bg-muted transition-colors disabled:opacity-50"
-              :disabled="!resultImage"
-              :title="t('tools.qrcode_gen.download_btn')"
-              @click="downloadImage"
-            >
-              <Download class="w-4 h-4" />
-            </button>
+      <!-- 已生成状态：输入不可编辑、不显示生成设置、只显示二维码/条形码、带有重新生成按钮 -->
+      <div v-else class="flex-1 flex flex-col gap-4 min-h-0">
+        <!-- 顶部操作条与不可编辑输入框 -->
+        <div class="flex flex-col gap-2.5 rounded-xl border border-border bg-card/60 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-foreground">
+                {{ t('tools.qrcode_gen.generated_count', { count: generatedItems.length }) }}
+              </span>
+              <span class="text-xs text-muted-foreground">
+                ({{ activeTab === 'qrcode' ? t('tools.qrcode_gen.tab_qrcode') : t('tools.qrcode_gen.tab_barcode') }})
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                v-if="generatedItems.length > 1"
+                data-testid="qrcode-batch-download-btn"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                @click="downloadAll"
+              >
+                <Download class="w-3.5 h-3.5" />
+                {{ t('tools.qrcode_gen.batch_download_btn') }}
+              </button>
+              <button
+                data-testid="qrcode-regenerate-btn"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+                @click="handleRegenerate"
+              >
+                <RefreshCw class="w-3.5 h-3.5" />
+                {{ t('tools.qrcode_gen.btn_regenerate') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="generate-input-shell opacity-80">
+            <textarea
+              :value="inputText"
+              readonly
+              disabled
+              data-testid="qrcode-generate-input"
+              class="block w-full h-16 p-2.5 bg-muted/30 font-mono text-xs resize-none border-0 outline-none cursor-not-allowed select-text text-muted-foreground"
+            ></textarea>
           </div>
         </div>
 
-        <div class="flex-1 flex items-center justify-center border border-dashed border-border rounded-lg bg-background overflow-hidden relative">
-          <div v-if="!resultImage && !errorMsg" class="text-muted-foreground text-sm">
-            {{ t('tools.qrcode_gen.preview_placeholder') }}
-          </div>
-          <div v-else-if="errorMsg" class="text-destructive text-sm p-4 text-center">
-            {{ errorMsg }}
-          </div>
-          <div v-else class="flex h-full w-full flex-col items-center justify-center gap-4 p-4">
-            <div class="flex w-full flex-1 items-center justify-center gap-4 min-h-0">
-              <button
-                v-if="hasMultipleResults"
-                data-testid="qrcode-prev-button"
-                :title="t('tools.qrcode_gen.prev_result_btn')"
-                class="shrink-0 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-                type="button"
-                @click="showPrevResult"
-              >
-                <ChevronLeft class="h-5 w-5" />
-              </button>
-
-              <img
-                :src="currentResultImage"
-                data-testid="qrcode-result-image"
-                class="max-h-full max-w-full object-contain"
-                :alt="t('tools.qrcode_gen.result_image_alt')"
-              />
-
-              <button
-                v-if="hasMultipleResults"
-                data-testid="qrcode-next-button"
-                :title="t('tools.qrcode_gen.next_result_btn')"
-                class="shrink-0 rounded-full border border-border bg-card p-2 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-                type="button"
-                @click="showNextResult"
-              >
-                <ChevronRight class="h-5 w-5" />
-              </button>
-            </div>
-
-            <div class="flex w-full max-w-xl flex-col items-center gap-2 rounded-lg border border-border bg-card/80 px-4 py-3 text-center shadow-sm">
-              <div
-                data-testid="qrcode-result-text"
-                class="w-full break-all font-mono text-sm text-foreground"
-              >
-                {{ currentResultText }}
+        <!-- 结果多列网格展示：一行最多展示4个，无需分页，支持纵向滚动 -->
+        <div class="flex-1 min-h-0 overflow-y-auto pr-1">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+            <div
+              v-for="(item, index) in generatedItems"
+              :key="index"
+              class="flex flex-col items-center gap-3 p-4 rounded-xl border border-border bg-card shadow-sm hover:shadow transition-shadow"
+            >
+              <div class="flex items-center justify-between w-full text-xs text-muted-foreground">
+                <span class="font-mono">#{{ index + 1 }}</span>
               </div>
-              <div
-                v-if="hasMultipleResults"
-                data-testid="qrcode-result-counter"
-                class="text-xs text-muted-foreground"
-              >
-                {{ currentResultIndex + 1 }} / {{ resultImages.length }}
+
+              <div class="flex-1 flex items-center justify-center min-h-[160px] max-h-[220px] w-full p-3 bg-white rounded-lg border border-border/50 overflow-hidden">
+                <img
+                  :src="item.image"
+                  data-testid="qrcode-result-image"
+                  class="max-h-full max-w-full object-contain mx-auto select-none"
+                  :alt="t('tools.qrcode_gen.result_image_alt')"
+                />
+              </div>
+
+              <div class="w-full flex flex-col gap-2">
+                <div
+                  data-testid="qrcode-result-text"
+                  class="text-xs font-mono break-all text-center text-muted-foreground line-clamp-2"
+                  :title="item.text"
+                >
+                  {{ item.text }}
+                </div>
+
+                <div class="flex items-center justify-center gap-1.5 pt-2 border-t border-border/50">
+                  <button
+                    class="inline-flex items-center gap-1 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs"
+                    :title="t('tools.qrcode_gen.copy_btn')"
+                    @click="copySingleImage(item.image)"
+                  >
+                    <Copy class="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    class="inline-flex items-center gap-1 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs"
+                    :title="t('tools.qrcode_gen.download_btn')"
+                    @click="downloadSingleImage(item.image, item.text, index)"
+                  >
+                    <Download class="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    class="inline-flex items-center gap-1 p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs"
+                    :title="t('tools.qrcode_gen.copy_text_btn')"
+                    @click="copySingleText(item.text)"
+                  >
+                    <FileText class="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div v-if="isGenerating" class="absolute inset-0 bg-background/50 flex items-center justify-center">
-            <RefreshCw class="w-6 h-6 animate-spin text-primary" />
           </div>
         </div>
       </div>
     </div>
 
+    <!-- 识别模式 -->
     <div v-else class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
       <RecognitionWorkbench
         ref="recognitionWorkbenchRef"

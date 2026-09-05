@@ -17,7 +17,53 @@ export interface SavePipelineResult {
 }
 
 const STORAGE_KEY = 'open-toolbox:text-processor:pipelines';
+const INITIALIZED_KEY = 'open-toolbox:text-processor:pipelines-initialized';
 const MAX_PIPELINES = 20;
+
+export const DEFAULT_BUILTIN_PIPELINES: SavedPipeline[] = [
+  {
+    name: '快速合并',
+    steps: [
+      {
+        id: 'builtin-step-quick-merge-dedup',
+        op: 'line_dedup',
+        scope: 'whole',
+        params: { trimLine: true, removeEmpty: true, keepOrder: true },
+      },
+      {
+        id: 'builtin-step-quick-merge-join',
+        op: 'line_join',
+        scope: 'whole',
+        params: { delimiter: ',', trimLine: true, removeEmpty: true, quote: false },
+      },
+    ],
+    updatedAt: 0,
+  },
+  {
+    name: '引号合并',
+    steps: [
+      {
+        id: 'builtin-step-quote-merge-dedup',
+        op: 'line_dedup',
+        scope: 'whole',
+        params: { trimLine: true, removeEmpty: true, keepOrder: true },
+      },
+      {
+        id: 'builtin-step-quote-merge-join',
+        op: 'line_join',
+        scope: 'whole',
+        params: { delimiter: ',', trimLine: true, removeEmpty: true, quote: true, quoteChar: "'" },
+      },
+    ],
+    updatedAt: 0,
+  },
+];
+
+const cloneDefaultPipelines = (): SavedPipeline[] =>
+  DEFAULT_BUILTIN_PIPELINES.map((p) => ({
+    ...p,
+    steps: p.steps.map((s) => ({ ...s, params: { ...s.params } })),
+  }));
 
 const isSavedPipeline = (value: unknown): value is SavedPipeline => {
   if (typeof value !== 'object' || value === null) {
@@ -34,6 +80,15 @@ const isSavedPipeline = (value: unknown): value is SavedPipeline => {
 export const loadPipelines = (): SavedPipeline[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    const initialized = localStorage.getItem(INITIALIZED_KEY);
+
+    if (raw === null && !initialized) {
+      const defaults = cloneDefaultPipelines();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+      localStorage.setItem(INITIALIZED_KEY, 'true');
+      return defaults;
+    }
+
     if (!raw) {
       return [];
     }
@@ -70,6 +125,7 @@ export const savePipeline = (name: string, steps: PipelineStep[]): SavePipelineR
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pipelines));
+    localStorage.setItem(INITIALIZED_KEY, 'true');
     return { ok: true };
   } catch {
     return { ok: false, error: 'STORAGE_UNAVAILABLE' };
@@ -81,6 +137,7 @@ export const deletePipeline = (name: string): void => {
   const next = pipelines.filter((p) => p.name !== name);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(INITIALIZED_KEY, 'true');
   } catch {
     // 删除失败静默：下次加载仍可重试。
   }

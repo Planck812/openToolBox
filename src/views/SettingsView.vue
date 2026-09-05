@@ -16,7 +16,7 @@ const router = useRouter();
 const route = useRoute();
 const store = useAppStore();
 const { homeShortcut, showShortcut, universalScreenshotShortcut, stickyShortcut, singleStickyShortcut, pinRecoveryShortcut, themeMode, themeSkinId, appBackgroundMode, homeMotionEnabled } = storeToRefs(store);
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 type SettingNavId =
   | 'theme' | 'background' | 'motion' | 'language'
@@ -221,12 +221,33 @@ const languages: { code: AppLocale; name: string }[] = [
   { code: 'en-US', name: 'English' },
 ];
 
-const currentLocale = ref<string>(i18n.global.locale.value as string);
+const getInitialLocale = (): string => {
+  if (locale && 'value' in locale && typeof locale.value === 'string') {
+    return locale.value;
+  }
+  if (i18n?.global?.locale) {
+    if (typeof i18n.global.locale === 'object' && 'value' in i18n.global.locale) {
+      return (i18n.global.locale as unknown as Ref<string>).value;
+    }
+    return String(i18n.global.locale);
+  }
+  return 'zh-CN';
+};
 
-const changeLanguage = (locale: AppLocale) => {
-  i18n.global.locale.value = locale;
-  currentLocale.value = locale;
-  localStorage.setItem('app-locale', locale);
+const currentLocale = ref<string>(getInitialLocale());
+
+const changeLanguage = (newLocale: AppLocale) => {
+  if (locale && 'value' in locale) {
+    locale.value = newLocale;
+  } else if (i18n?.global?.locale) {
+    if (typeof i18n.global.locale === 'object' && 'value' in i18n.global.locale) {
+      (i18n.global.locale as unknown as Ref<string>).value = newLocale;
+    } else {
+      (i18n.global as unknown as { locale: string }).locale = newLocale;
+    }
+  }
+  currentLocale.value = newLocale;
+  localStorage.setItem('app-locale', newLocale);
 };
 
 const activeThemeSkin = computed(() => getThemeSkin(themeSkinId.value));

@@ -250,7 +250,7 @@ fn alarm_payload(alarm: &Alarm) -> AlertPayload {
             alarm.label.clone()
         },
         message: format!("{:02}:{:02}", alarm.hour, alarm.minute),
-        show_snooze: true,
+        show_snooze: false,
         show_close: true,
         show_skip: false,
         auto_dismiss: false,

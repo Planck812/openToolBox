@@ -160,7 +160,7 @@ onUnmounted(() => {
         />
       </div>
 
-      <ul v-if="recommended.length" class="ql-list">
+      <ul v-if="recommended.length" class="ql-list ql-recommended-list">
         <li v-for="(item, index) in recommended" :key="item.toolId">
           <button
             type="button"
@@ -180,7 +180,7 @@ onUnmounted(() => {
 
       <div v-if="savedPipelines.length" class="ql-pipelines">
         <div class="ql-pipelines-title">{{ t('common.quick_launch_pipelines_title') }}</div>
-        <ul class="ql-list">
+        <ul class="ql-list ql-pipeline-list">
           <li v-for="p in savedPipelines.slice(0, 4)" :key="p.name">
             <button
               type="button"

@@ -10,6 +10,8 @@ export async function runDesktopSpec(ctx) {
   await ctx.recordStep('已打开二维码工具');
 
   await ctx.setValueByTestId('qrcode-generate-input', expectedText);
+  const generateBtn = await ctx.expectTestIdVisible('qrcode-generate-btn');
+  await generateBtn.click();
   await ctx.browser.waitUntil(
     async () => {
       const image = await ctx.browser.$('[data-testid="qrcode-result-image"]');

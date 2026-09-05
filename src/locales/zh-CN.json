@@ -770,7 +770,15 @@
       "resize_aria": "调整生成配置宽度",
       "prev_result_btn": "上一张",
       "next_result_btn": "下一张",
-      "result_image_alt": "生成的二维码或条形码"
+      "result_image_alt": "生成的二维码或条形码",
+      "btn_generate": "点击生成",
+      "btn_regenerate": "重新生成",
+      "input_empty_warning": "请输入要生成的内容",
+      "input_hint": "支持多行，每行将独立生成一张二维码或条形码",
+      "generated_count": "共生成 {count} 张",
+      "copy_text_btn": "复制内容",
+      "copy_text_success": "内容已复制到剪贴板",
+      "batch_download_btn": "全部下载"
     },
     "ocr": {
       "name": "OCR 文字识别",
@@ -1131,6 +1139,7 @@
       "session_unlocked": "已解锁（10分钟免密）",
       "delete": "删除",
       "delete_confirm": "确定删除这条密码记录吗？",
+      "modify_password_confirm": "当前已有密码，确定要修改吗？",
       "created": "已新建密码记录",
       "deleted": "已删除密码记录",
       "copy_success": "密码已复制到剪贴板",
@@ -1294,9 +1303,9 @@
       "cannot_detect_source": "无法识别源格式，请手动选择 JSON / YAML / TOML / XML / Properties"
     },
     "totp_2fa": {
-      "name": "2FA / TOTP",
+      "name": "2FA",
       "description": "基于 Base32 密钥或 otpauth URI 生成与校验 TOTP 动态验证码",
-      "title": "2FA / TOTP",
+      "title": "2FA",
       "subtitle": "生成、刷新并校验基于时间的一次性密码",
       "secret_label": "密钥 (Base32)",
       "secret_placeholder": "输入 Base32 密钥，或粘贴 otpauth:// URI",

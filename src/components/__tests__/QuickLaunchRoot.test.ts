@@ -56,7 +56,7 @@ describe('QuickLaunchRoot', () => {
 
     expect((wrapper.find('input').element as HTMLInputElement).value).toBe('{"a":1}');
     // 推荐工具（json 内容 → json-viewer 强命中）
-    expect(wrapper.findAll('.ql-list .ql-item').length).toBeGreaterThan(0);
+    expect(wrapper.findAll('.ql-recommended-list .ql-item').length).toBeGreaterThan(0);
     // 固定「打开首页」入口
     expect(wrapper.find('.ql-home-item').exists()).toBe(true);
   });
@@ -64,14 +64,14 @@ describe('QuickLaunchRoot', () => {
   it('推荐工具最多 4 个', async () => {
     readTextMock.mockResolvedValue('json');
     const wrapper = await mountRoot();
-    expect(wrapper.findAll('.ql-list .ql-item').length).toBeLessThanOrEqual(4);
+    expect(wrapper.findAll('.ql-recommended-list .ql-item').length).toBeLessThanOrEqual(4);
   });
 
   it('点击推荐工具：emitTo main 携带 toolId 与输入并隐藏窗口', async () => {
     readTextMock.mockResolvedValue('{"a":1}');
     const wrapper = await mountRoot();
 
-    await wrapper.find('.ql-list .ql-item').trigger('click');
+    await wrapper.find('.ql-recommended-list .ql-item').trigger('click');
     expect(emitToMock).toHaveBeenCalledWith('main', 'quicklaunch_open_tool', {
       toolId: 'json-viewer',
       input: '{"a":1}',
@@ -80,7 +80,7 @@ describe('QuickLaunchRoot', () => {
   });
 
   it('点击打开首页：emitTo main 并隐藏窗口', async () => {
-    readTextMock.mockResolvedValue('{"a":1}');
+    readTextMock.mockResolvedValue('hello');
     const wrapper = await mountRoot();
 
     await wrapper.find('.ql-home-item').trigger('click');
@@ -105,7 +105,7 @@ describe('QuickLaunchRoot', () => {
     const wrapper = await mountRoot();
 
     expect(wrapper.text()).toContain('common.quick_launch_pipelines_title');
-    const pipelineBtn = wrapper.findAll('.ql-item').find((b) => b.text() === 'T1');
+    const pipelineBtn = wrapper.findAll('.ql-pipeline-list .ql-item').find((b) => b.text() === 'T1');
     expect(pipelineBtn).toBeDefined();
 
     await pipelineBtn!.trigger('click');
@@ -117,6 +117,7 @@ describe('QuickLaunchRoot', () => {
   });
 
   it('没有已存管线时不渲染管线区', async () => {
+    localStorage.setItem('open-toolbox:text-processor:pipelines', '[]');
     readTextMock.mockResolvedValue('hello');
     const wrapper = await mountRoot();
 

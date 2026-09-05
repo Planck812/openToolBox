@@ -173,4 +173,75 @@ describe('PasswordBoxTool Authentication', () => {
     const appStore = useAppStore();
     expect(appStore.showToast).toHaveBeenCalledWith('tools.pwd_box.locked', { type: 'info' });
   });
+
+  it('修改已有密码时提示确认：确认后更新密码', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const saveSpy = vi.spyOn(storage, 'savePasswordBoxItems').mockResolvedValue();
+
+    const wrapper = mount(PasswordBoxTool, {
+      global: { plugins: [pinia] },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="pwd-box-password-input"]').exists()).toBe(true);
+    });
+
+    const input = wrapper.get('[data-testid="pwd-box-password-input"]');
+    (input.element as HTMLInputElement).value = 'NewChangedPassword456!';
+    await input.trigger('change');
+
+    expect(confirmSpy).toHaveBeenCalledWith('tools.pwd_box.modify_password_confirm');
+    expect(saveSpy).toHaveBeenCalled();
+  });
+
+  it('修改已有密码时提示确认：取消则还原输入并不保存', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const saveSpy = vi.spyOn(storage, 'savePasswordBoxItems').mockResolvedValue();
+
+    const wrapper = mount(PasswordBoxTool, {
+      global: { plugins: [pinia] },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="pwd-box-password-input"]').exists()).toBe(true);
+    });
+
+    const input = wrapper.get('[data-testid="pwd-box-password-input"]');
+    (input.element as HTMLInputElement).value = 'NewChangedPassword456!';
+    await input.trigger('change');
+
+    expect(confirmSpy).toHaveBeenCalledWith('tools.pwd_box.modify_password_confirm');
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect((input.element as HTMLInputElement).value).toBe('SuperSecretPassword123!');
+  });
+
+  it('密码原为空时修改不弹出确认提示', async () => {
+    vi.spyOn(storage, 'loadPasswordBoxItems').mockResolvedValue([
+      {
+        id: 'pwd-empty',
+        site: 'test.com',
+        username: 'bob',
+        password: '',
+        note: '',
+        updatedAt: '2026-09-04T10:00:00.000Z',
+      },
+    ]);
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const saveSpy = vi.spyOn(storage, 'savePasswordBoxItems').mockResolvedValue();
+
+    const wrapper = mount(PasswordBoxTool, {
+      global: { plugins: [pinia] },
+    });
+
+    await vi.waitFor(() => {
+      expect(wrapper.find('[data-testid="pwd-box-password-input"]').exists()).toBe(true);
+    });
+
+    const input = wrapper.get('[data-testid="pwd-box-password-input"]');
+    (input.element as HTMLInputElement).value = 'FirstTimePassword!';
+    await input.trigger('change');
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalled();
+  });
 });

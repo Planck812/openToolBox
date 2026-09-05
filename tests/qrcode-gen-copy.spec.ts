@@ -109,8 +109,7 @@ describe('二维码图片复制', () => {
 
     try {
       await wrapper.find('[data-testid="qrcode-generate-input"]').setValue('copy-image');
-      await flushPromises();
-      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      await wrapper.find('[data-testid="qrcode-generate-btn"]').trigger('click');
       await flushPromises();
 
       const copyButton = wrapper.find('button[title="tools.qrcode_gen.copy_btn"]');
