@@ -20,8 +20,11 @@ vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({
   writeText: vi.fn().mockResolvedValue(undefined),
 }));
 
-/** 「所有工具」区块默认折叠：先点击标题展开再操作网格内元素。 */
+/** 确保「所有工具」区块处于展开状态。若未展开则点击标题展开。 */
 const expandAllTools = async (wrapper: ReturnType<typeof mount>) => {
+  if (wrapper.find('[data-testid="tool-grid"]').exists()) {
+    return;
+  }
   await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
   await flushPromises();
 };
@@ -197,22 +200,25 @@ describe('HomeView', () => {
     ]);
   });
 
-  it('所有工具默认折叠，点击标题可展开收起', async () => {
+  it('所有工具默认展开，点击标题可收起与再次展开', async () => {
     const wrapper = mount(HomeView, {
       global: {
         plugins: [createPinia()],
       },
     });
 
-    expect(wrapper.find('[data-testid="tool-grid"]').exists()).toBe(false);
-
-    await expandAllTools(wrapper);
     expect(wrapper.find('[data-testid="tool-grid"]').exists()).toBe(true);
     expect(wrapper.get('[data-testid="all-tools-toggle"]').attributes('aria-expanded')).toBe('true');
 
     await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
     await flushPromises();
     expect(wrapper.find('[data-testid="tool-grid"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="all-tools-toggle"]').attributes('aria-expanded')).toBe('false');
+
+    await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('[data-testid="tool-grid"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="all-tools-toggle"]').attributes('aria-expanded')).toBe('true');
   });
 
   it('点击侧边栏分类后只展示对应分类工具', async () => {

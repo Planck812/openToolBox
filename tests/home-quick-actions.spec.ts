@@ -400,9 +400,11 @@ describe('首页快捷处理区', () => {
     const firstTool = store.filteredTools[0];
     expect(firstTool).toBeTruthy();
 
-    // 「所有工具」默认折叠，先展开让它进入键盘导航分区
-    await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
-    await flushPromises();
+    // 确保「所有工具」展开以进入键盘导航分区
+    if (!wrapper.find('[data-testid="tool-grid"]').exists()) {
+      await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
+      await flushPromises();
+    }
 
     // 主输入框编辑态 ↑/↓ 不再跨区导航；改用 Tab 依次移到快捷操作区、强力工具区、所有工具区
     await textarea.trigger('keydown', { key: 'Tab' });
@@ -519,9 +521,11 @@ describe('首页快捷处理区', () => {
     });
 
     await flushPromises();
-    // 「所有工具」默认折叠，先展开让它进入键盘导航分区
-    await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
-    await flushPromises();
+    // 确保「所有工具」展开以进入键盘导航分区
+    if (!wrapper.find('[data-testid="tool-grid"]').exists()) {
+      await wrapper.get('[data-testid="all-tools-toggle"]').trigger('click');
+      await flushPromises();
+    }
     const textarea = wrapper.find('textarea');
     await textarea.setValue('{"example":1}');
     await textarea.trigger('focus');

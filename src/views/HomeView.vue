@@ -188,8 +188,8 @@ const handleStrongToolsEditorKeydown = (event: KeyboardEvent) => {
   }
 };
 
-// 「所有工具」区块默认折叠；搜索输入或切换侧边栏模式时自动展开。
-const allToolsCollapsed = ref(true);
+// 「所有工具」区块默认展开；支持点击标题折叠或展开。
+const allToolsCollapsed = ref(false);
 const isAllToolsExpanded = computed(() => !allToolsCollapsed.value || searchQuery.value.trim().length > 0);
 const toggleAllTools = () => {
   allToolsCollapsed.value = !allToolsCollapsed.value;
