@@ -152,7 +152,7 @@ onUnmounted(() => {
           <img :src="'/tauri.svg'" alt="" class="app-titlebar-icon" />
           <span class="app-titlebar-logo-glow"></span>
         </span>
-        <span class="app-titlebar-name">open-toolbox</span>
+        <span class="app-titlebar-name">Open-Toolbox</span>
         <span class="app-titlebar-tag">TECH</span>
       </div>
       <div class="app-window-controls">

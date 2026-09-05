@@ -373,7 +373,7 @@ onMounted(async () => {
         <div class="brand-orbit">
           <span></span>
         </div>
-        <div class="brand-name">open-toolbox</div>
+        <div class="brand-name">Open-Toolbox</div>
       </div>
 
       <div class="sidebar-scroll min-h-0 flex-1 overflow-y-auto pr-1">
