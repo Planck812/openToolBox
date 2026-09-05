@@ -5,6 +5,7 @@
 import { nextTick, onBeforeUnmount, type Ref, type ComputedRef } from 'vue';
 import { useAppStore } from '@/store/app';
 import { useI18n } from 'vue-i18n';
+import { askConfirm } from '@/lib/confirm';
 import { isValidEnvKey, parseEnvAssignment } from '@/tools/env-setter/env-model';
 import {
   apply_env_write,
@@ -337,7 +338,7 @@ const onSubmit = async () => {
 const deleteSelectedVariable = async () => {
   if (!canDeleteSelectedUserVariable.value || deleting.value || loading.value || applyingPreview.value) return;
   const key = selectedVariableKey.value;
-  if (!window.confirm(t('tools.env_setter.delete_confirm', { key }))) return;
+  if (!(await askConfirm(t('tools.env_setter.delete_confirm', { key })))) return;
 
   deleting.value = true;
   try {

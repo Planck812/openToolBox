@@ -41,18 +41,19 @@ defineExpose({ clearInput });
   >
     <div
       data-testid="recognition-upload-panel"
-      class="recognition-upload-card border border-border rounded-md bg-card p-4 flex flex-col gap-3"
+      class="recognition-upload-card border border-border rounded-2xl bg-card p-5 flex flex-col gap-4 shadow-sm"
     >
-      <div class="text-sm font-medium tracking-[0.01em]">{{ t('tools.qrcode_gen.recognition_title') }}</div>
+      <div class="text-sm font-medium tracking-[0.01em] text-foreground">{{ t('tools.qrcode_gen.recognition_title') }}</div>
       <div class="text-sm text-muted-foreground">{{ t('tools.qrcode_gen.recognition_description') }}</div>
 
-      <div class="recognition-dropzone rounded-lg border border-dashed border-primary/35 bg-primary/5 p-6 flex flex-col items-center justify-center gap-3 text-center">
-        <div class="text-sm font-medium tracking-[0.01em]">{{ t('tools.qrcode_gen.paste_or_upload') }}</div>
+      <div class="recognition-dropzone rounded-xl border-2 border-dashed border-border/80 bg-muted/20 hover:bg-muted/30 p-8 flex flex-col items-center justify-center gap-3 text-center transition-colors">
+        <div class="text-sm font-medium tracking-[0.01em] text-foreground">{{ t('tools.qrcode_gen.paste_or_upload') }}</div>
         <div class="text-xs text-muted-foreground max-w-md">
           {{ t('tools.qrcode_gen.paste_tip') }}
         </div>
         <button
-          class="recognition-upload-button inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-background hover:bg-muted transition-colors text-sm"
+          type="button"
+          class="recognition-upload-button inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors text-sm shadow-sm"
           @click="openFilePicker"
         >
           <Upload class="w-4 h-4" />
@@ -75,18 +76,19 @@ defineExpose({ clearInput });
 
     <div
       data-testid="recognition-merged-panel"
-      class="recognition-preview-card min-h-0 min-w-0 border border-border rounded-2xl bg-card/95 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)]"
+      class="recognition-preview-card min-h-0 min-w-0 border border-border rounded-2xl bg-card/95 p-5 shadow-sm"
     >
       <div class="min-h-0 min-w-0 flex flex-col gap-3">
         <div class="recognition-preview-toolbar flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <div class="recognition-preview-title text-sm font-medium tracking-[0.01em]">{{ t('tools.qrcode_gen.image_preview_title') }}</div>
+            <div class="recognition-preview-title text-sm font-medium tracking-[0.01em] text-foreground">{{ t('tools.qrcode_gen.image_preview_title') }}</div>
             <div class="text-xs text-muted-foreground">
               {{ recognitionResult?.formatLabel || t('tools.qrcode_gen.recognition_result_placeholder') }}
             </div>
           </div>
           <button
-            class="recognition-copy-chip shrink-0"
+            type="button"
+            class="recognition-copy-chip shrink-0 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
             :disabled="!recognitionResult?.text"
             @click="emit('copy-result')"
           >
@@ -95,7 +97,7 @@ defineExpose({ clearInput });
         </div>
         <div
           data-testid="recognition-preview-panel"
-          class="recognition-preview-stage min-h-[420px] max-h-[clamp(420px,62vh,680px)] flex items-center justify-center overflow-hidden relative px-10 py-12"
+          class="recognition-preview-stage min-h-[420px] max-h-[clamp(420px,62vh,680px)] rounded-xl border border-dashed border-border bg-muted/15 flex items-center justify-center overflow-hidden relative px-10 py-12"
         >
           <div v-if="!recognitionPreviewUrl" class="text-sm text-muted-foreground text-center px-4">
             {{ t('tools.qrcode_gen.recognition_preview_placeholder') }}
@@ -106,7 +108,7 @@ defineExpose({ clearInput });
           >
             <img
               :src="recognitionPreviewUrl"
-              class="recognition-preview-image max-w-full max-h-full object-contain"
+              class="recognition-preview-image max-w-full max-h-full object-contain rounded-lg"
               alt="Recognition Source"
             />
             <div
@@ -116,7 +118,7 @@ defineExpose({ clearInput });
             >
               <div
                 data-testid="recognition-text-badge"
-                class="text-[clamp(1.15rem,1.6vw,1.45rem)] font-semibold leading-[1.1] tracking-[0.01em] break-all text-foreground text-center"
+                class="text-[clamp(1.15rem,1.6vw,1.45rem)] font-semibold leading-[1.1] tracking-[0.01em] break-all text-foreground text-center select-text"
               >
                 {{ recognitionResult.text }}
               </div>
@@ -125,12 +127,12 @@ defineExpose({ clearInput });
 
           <div
             v-if="recognitionError"
-            class="absolute inset-x-4 bottom-4 rounded-2xl border border-destructive/25 bg-background/96 px-4 py-3 text-sm text-destructive shadow-[0_12px_28px_rgba(15,23,42,0.14)] backdrop-blur-sm"
+            class="absolute inset-x-4 bottom-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-sm backdrop-blur-sm"
           >
             {{ recognitionError }}
           </div>
 
-          <div v-if="isRecognizing" class="absolute inset-0 bg-background/45 flex items-center justify-center">
+          <div v-if="isRecognizing" class="absolute inset-0 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
             <RefreshCw class="w-6 h-6 animate-spin text-primary" />
           </div>
         </div>
@@ -152,33 +154,8 @@ defineExpose({ clearInput });
   align-items: stretch;
 }
 
-.recognition-upload-card,
-.recognition-preview-card {
-  border-radius: 1.75rem;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 18px 45px rgba(15, 23, 42, 0.06);
-}
-
-.recognition-upload-card {
-  padding: 1.25rem;
-}
-
 .recognition-dropzone {
   min-height: 14.5rem;
-  border-color: rgba(148, 163, 184, 0.55);
-  background:
-    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.94)),
-    radial-gradient(circle at top, rgba(59, 130, 246, 0.06), transparent 38%);
-}
-
-.recognition-upload-button {
-  border-radius: 999px;
-  padding-inline: 1.2rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .recognition-preview-title {
@@ -189,68 +166,13 @@ defineExpose({ clearInput });
   padding: 0.15rem 0.2rem 0;
 }
 
-.recognition-preview-stage {
-  border: 1px dashed hsl(var(--border));
-  border-radius: 1.8rem;
-  background:
-    radial-gradient(circle at 50% 6%, rgba(59, 130, 246, 0.1), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 247, 251, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.88),
-    0 22px 54px rgba(15, 23, 42, 0.07);
-}
-
-.recognition-preview-stage::before {
-  content: '';
-  position: absolute;
-  inset: 0.9rem;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(226, 232, 240, 0.75);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0)),
-    repeating-linear-gradient(
-      0deg,
-      rgba(226, 232, 240, 0.16) 0,
-      rgba(226, 232, 240, 0.16) 1px,
-      transparent 1px,
-      transparent 28px
-    );
-  pointer-events: none;
-}
-
-.recognition-preview-stage > * {
-  position: relative;
-  z-index: 1;
-}
-
 .recognition-preview-image {
   max-width: 66%;
   max-height: 66%;
-  filter: drop-shadow(0 16px 30px rgba(15, 23, 42, 0.08));
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.12));
 }
 
 .recognition-preview-stack {
   max-width: 100%;
-}
-
-.recognition-copy-chip {
-  border: 1px solid rgba(226, 232, 240, 0.82);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(12px);
-}
-
-.recognition-copy-chip {
-  border-radius: 999px;
-  padding: 0.78rem 1.18rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.recognition-copy-chip:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.95);
-  transform: translateY(-1px);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.11);
 }
 </style>

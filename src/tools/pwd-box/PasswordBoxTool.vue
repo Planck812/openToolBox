@@ -13,6 +13,7 @@ import {
   Trash2,
 } from 'lucide-vue-next';
 import { copyText } from '@/lib/clipboard';
+import { askConfirm } from '@/lib/confirm';
 import { pwdboxAuthenticate, pwdboxAuthCheck, pwdboxAuthLock } from '@/lib/ipc/pwdbox';
 import { useAppStore } from '@/store/app';
 import { useResizablePanel } from '@/lib/use-resizable-panel';
@@ -265,7 +266,7 @@ const onPasswordInputChange = async (event: Event, item: PasswordBoxItem) => {
   }
 
   if (currentPassword) {
-    const confirmed = window.confirm(t('tools.pwd_box.modify_password_confirm'));
+    const confirmed = await askConfirm(t('tools.pwd_box.modify_password_confirm'));
     if (!confirmed) {
       target.value = currentPassword;
       return;
@@ -292,7 +293,7 @@ const fillGeneratedPassword = async () => {
     selectedItem.value.password &&
     selectedItem.value.password !== generatedPassword.value
   ) {
-    const confirmed = window.confirm(t('tools.pwd_box.modify_password_confirm'));
+    const confirmed = await askConfirm(t('tools.pwd_box.modify_password_confirm'));
     if (!confirmed) {
       return;
     }
@@ -317,7 +318,8 @@ const copyGeneratedPassword = async () => {
 };
 
 const deleteItem = async (itemId: string) => {
-  if (!window.confirm(t('tools.pwd_box.delete_confirm'))) {
+  const confirmed = await askConfirm(t('tools.pwd_box.delete_confirm'));
+  if (!confirmed) {
     return;
   }
 

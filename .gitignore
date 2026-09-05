@@ -48,3 +48,4 @@ verification.md
 
 # 本地发布构建物
 build-output*/
+dist-release/
