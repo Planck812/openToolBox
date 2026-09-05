@@ -3,6 +3,7 @@
  *
  * 独立入口减少便利贴窗口加载时间（复用 pin 的精简入口模式）。
  */
+import './lib/tauri-env';
 import { createApp } from 'vue';
 import StickyNote from './tools/sticky-note/StickyNote.vue';
 import i18n from './i18n';

@@ -1,6 +1,6 @@
 [package]
 name = "open-toolbox"
-version = "0.1.0"
+version = "1.0.0"
 description = "Open-Toolbox: 跨平台桌面效率工具箱（Tauri 2 + Vue 3）"
 authors = ["Planck812"]
 edition = "2021"

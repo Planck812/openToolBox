@@ -3,6 +3,7 @@
  *
  * 独立入口减少弹窗窗口加载时间（复用 sticky/pin 的精简入口模式）。
  */
+import './lib/tauri-env';
 import { createApp } from 'vue';
 import ReminderWindow from './tools/sedentary-reminder/ReminderWindow.vue';
 import i18n from './i18n';

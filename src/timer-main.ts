@@ -5,6 +5,7 @@
  * 窗口 label = `timer-alert-{kind}-{id}`，TimerAlert 解析 label 得知 kind/id，
  * 再向后端 `timer_get_alert` 读取渲染载荷。
  */
+import './lib/tauri-env';
 import { createApp } from 'vue';
 import TimerAlert from './tools/timer-center/TimerAlert.vue';
 import i18n from './i18n';
