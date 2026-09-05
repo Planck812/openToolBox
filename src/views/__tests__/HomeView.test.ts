@@ -59,7 +59,9 @@ describe('HomeView', () => {
     expect(recommendedGrid.classes()).toEqual(expect.arrayContaining([
       'grid-cols-1',
       'sm:grid-cols-2',
-      'xl:grid-cols-3',
+      'lg:grid-cols-3',
+      'xl:grid-cols-4',
+      'min-[1440px]:grid-cols-5',
       '2xl:grid-cols-6',
     ]));
     expect(recommendedCards.every((card) => card.classes().includes('tool-card'))).toBe(true);

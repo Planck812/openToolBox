@@ -566,7 +566,7 @@ onMounted(async () => {
 
       <section v-if="showRecommendedPanel" class="mt-6">
         <h3 class="section-title">{{ t('common.recommended') }}</h3>
-        <div data-testid="tool-grid-recommended" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div data-testid="tool-grid-recommended" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 2xl:grid-cols-6">
           <button
             v-for="(card, index) in recommendedCards"
             :key="card.id"
@@ -604,7 +604,7 @@ onMounted(async () => {
             {{ t('home.strong_tools_customize') }}
           </button>
         </div>
-        <div v-if="strongTools.length > 0" data-testid="tool-grid-strong" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div v-if="strongTools.length > 0" data-testid="tool-grid-strong" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 2xl:grid-cols-6">
           <div
             v-for="(tool, index) in strongTools"
             :key="tool.metadata.id"
@@ -664,7 +664,7 @@ onMounted(async () => {
           <span>{{ activeSidebarTitle }}</span>
           <span class="section-count">{{ commandFilteredTools.length }}</span>
         </button>
-        <div v-if="isAllToolsExpanded" data-testid="tool-grid" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div v-if="isAllToolsExpanded" data-testid="tool-grid" class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 2xl:grid-cols-6">
           <div
             v-for="(tool, index) in commandFilteredTools"
             :key="tool.metadata.id"
