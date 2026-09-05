@@ -18,6 +18,7 @@ export interface SavePipelineResult {
 
 const STORAGE_KEY = 'open-toolbox:text-processor:pipelines';
 const INITIALIZED_KEY = 'open-toolbox:text-processor:pipelines-initialized';
+const BUILTIN_SEEDED_KEY = 'open-toolbox:text-processor:builtin-seeded-v1';
 const MAX_PIPELINES = 20;
 
 export const DEFAULT_BUILTIN_PIPELINES: SavedPipeline[] = [
@@ -80,23 +81,31 @@ const isSavedPipeline = (value: unknown): value is SavedPipeline => {
 export const loadPipelines = (): SavedPipeline[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const initialized = localStorage.getItem(INITIALIZED_KEY);
+    const seeded = localStorage.getItem(BUILTIN_SEEDED_KEY);
 
-    if (raw === null && !initialized) {
+    let current: SavedPipeline[] = [];
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        current = parsed.filter(isSavedPipeline);
+      }
+    }
+
+    // 首次植入默认内置管线：无论对于新用户（无数据）还是老版本升级用户（已有自定义管线），
+    // 均将尚未存在的内置管线补全并置于前部，支持用户后续自行修改与删除。
+    if (!seeded) {
       const defaults = cloneDefaultPipelines();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+      const existingNames = new Set(current.map((p) => p.name));
+      const toAdd = defaults.filter((d) => !existingNames.has(d.name));
+      current = [...toAdd, ...current].slice(0, MAX_PIPELINES);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+      localStorage.setItem(BUILTIN_SEEDED_KEY, 'true');
       localStorage.setItem(INITIALIZED_KEY, 'true');
-      return defaults;
+      return current;
     }
 
-    if (!raw) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isSavedPipeline);
+    return current;
   } catch {
     return [];
   }
@@ -125,6 +134,7 @@ export const savePipeline = (name: string, steps: PipelineStep[]): SavePipelineR
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pipelines));
+    localStorage.setItem(BUILTIN_SEEDED_KEY, 'true');
     localStorage.setItem(INITIALIZED_KEY, 'true');
     return { ok: true };
   } catch {
@@ -137,8 +147,10 @@ export const deletePipeline = (name: string): void => {
   const next = pipelines.filter((p) => p.name !== name);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(BUILTIN_SEEDED_KEY, 'true');
     localStorage.setItem(INITIALIZED_KEY, 'true');
   } catch {
     // 删除失败静默：下次加载仍可重试。
   }
 };
+

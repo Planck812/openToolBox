@@ -76,4 +76,24 @@ describe('pipeline-store', () => {
     const pipelines = loadPipelines();
     expect(pipelines.find((p) => p.name === 'p')).toBeUndefined();
   });
+
+  it('seeds default builtin pipelines for existing users who already have custom pipelines', () => {
+    // 模拟旧版本用户已经存储了自定义管线，但尚未植入内置管线
+    localStorage.setItem(
+      'open-toolbox:text-processor:pipelines',
+      JSON.stringify([{ name: '管线测试1', steps: [makeStep('upper')], updatedAt: 12345 }])
+    );
+
+    const pipelines = loadPipelines();
+    expect(pipelines.map((p) => p.name)).toEqual(['快速合并', '引号合并', '管线测试1']);
+
+    // 再次加载不会重复添加
+    const reloaded = loadPipelines();
+    expect(reloaded.map((p) => p.name)).toEqual(['快速合并', '引号合并', '管线测试1']);
+
+    // 用户删除快速合并后，不会被重新植入
+    deletePipeline('快速合并');
+    expect(loadPipelines().map((p) => p.name)).toEqual(['引号合并', '管线测试1']);
+  });
 });
+
