@@ -43,6 +43,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "macOS": {
+      "signingIdentity": "-"
+    },
     "resources": {
       "tessdata/chi_sim.traineddata": "tessdata/chi_sim.traineddata",
       "tessdata/chi_sim_vert.traineddata": "tessdata/chi_sim_vert.traineddata",
