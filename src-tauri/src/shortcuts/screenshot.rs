@@ -28,6 +28,20 @@ pub fn register_universal_screenshot_shortcut<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     shortcut: &str,
 ) -> Result<(), String> {
+    // macOS 上截图功能已停用（实现存在已知缺陷）。此处直接返回成功而不注册：
+    // 快捷键独立于工具注册表，若仍注册，用户按下即会触发那段有问题的代码 ——
+    // 光把工具从列表里摘掉挡不住。
+    //
+    // 在函数入口统一拦截，而非逐个修改调用点：注册路径有初次注册、全量重建、
+    // 设置页同步等多处，逐个门禁容易漏。返回 Ok 使上层「同步成功」的逻辑不变，
+    // 设置页不会误报失败。
+    #[cfg(not(screenshot_supported))]
+    {
+        let _ = (app, shortcut);
+        return Ok(());
+    }
+
+    #[cfg(screenshot_supported)]
     app.global_shortcut()
         .on_shortcut(shortcut, move |app_handle, _shortcut, event| {
             if event.state != ShortcutState::Pressed {
@@ -49,6 +63,21 @@ pub fn sync_universal_screenshot_shortcut<R: tauri::Runtime>(
     shortcut_state: tauri::State<'_, ShortcutRuntimeState>,
     shortcut: String,
 ) -> ShortcutSyncResponse {
+    // macOS 上截图功能已停用：如实返回「未注册」，而不是让下层空转后报成功。
+    // 否则日志会打出「✅ registered」，与实际行为相反，误导后续排查。
+    #[cfg(not(screenshot_supported))]
+    {
+        let _ = (&app, &shortcut_state, &shortcut);
+        return ShortcutSyncResponse {
+            success: true,
+            requested_shortcut: shortcut,
+            registered_shortcut: None,
+            error: Some("当前平台已停用截图功能".to_string()),
+        };
+    }
+
+    #[cfg(screenshot_supported)]
+    {
     let normalized = shortcut.trim().to_string();
     log_to_test_file(&format!(
         "sync_universal_screenshot_shortcut requested: {}",
@@ -147,5 +176,6 @@ pub fn sync_universal_screenshot_shortcut<R: tauri::Runtime>(
         requested_shortcut: normalized.clone(),
         registered_shortcut: Some(normalized),
         error: None,
+    }
     }
 }

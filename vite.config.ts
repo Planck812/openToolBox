@@ -11,6 +11,7 @@ const host = process.env.TAURI_DEV_HOST;
 // @ts-expect-error process is a nodejs global
 const targetPlatform: string = process.env.TAURI_ENV_PLATFORM ?? process.platform;
 const isWindowsTarget = targetPlatform === "windows" || targetPlatform === "win32";
+const isMacTarget = targetPlatform === "darwin" || targetPlatform === "macos";
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -27,6 +28,7 @@ export default defineConfig(async () => ({
   // 而不是打包进产物后在运行时才发现不可用。
   define: {
     __IS_WINDOWS__: JSON.stringify(isWindowsTarget),
+    __IS_MACOS__: JSON.stringify(isMacTarget),
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

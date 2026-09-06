@@ -44,6 +44,18 @@ import type { Tool } from './interface';
  */
 const windowsOnlyTools: Tool[] = __IS_WINDOWS__ ? [portKillerTool] : [];
 
+/**
+ * 在 macOS 上停用的工具。
+ *
+ * - `screenshot-universal` / `sticky-manager`：macOS 端实现存在已知缺陷，
+ *   暂不提供，避免用户踩坑。
+ *   与之配套的全局截图快捷键、贴图相关托盘项与快捷键在 Rust 侧一并按
+ *   `screenshot_supported` 门禁关闭（见 build.rs）—— 只摘工具入口不够：
+ *   快捷键独立于工具注册表，仍会触发同一段有问题的代码。
+ *   Linux（X11）实现不受影响，故不用 `__IS_WINDOWS__` 取反判断。
+ */
+const nonMacosTools: Tool[] = __IS_MACOS__ ? [] : [screenshotUniversalTool, stickyManagerTool];
+
 export const tools: Tool[] = [
   jsonViewerTool,
   timestampTool,
@@ -69,9 +81,8 @@ export const tools: Tool[] = [
   formatConvertTool,
   totp2faTool,
   envSetterTool,
-  screenshotUniversalTool,
+  ...nonMacosTools,
   ocrTool,
-  stickyManagerTool,
   sedentaryReminderTool,
   timerCenterTool,
   aesTool,

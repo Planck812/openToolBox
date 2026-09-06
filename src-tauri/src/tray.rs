@@ -34,9 +34,12 @@ fn build_tray_menu<R: tauri::Runtime>(
         .checked(autostart_checked)
         .build(app)?;
     let minimize_item = MenuItemBuilder::new("最小化").id("minimize").build(app)?;
+    // macOS 上截图功能已停用，贴图由截图产生，故这两个菜单项无对象可作用，一并隐藏。
+    #[cfg(screenshot_supported)]
     let restore_pins_item = MenuItemBuilder::new("恢复全部贴图交互")
         .id("restore_pins")
         .build(app)?;
+    #[cfg(screenshot_supported)]
     let close_pins_item = MenuItemBuilder::new("关闭全部贴图")
         .id("close_pins")
         .build(app)?;
@@ -62,13 +65,17 @@ fn build_tray_menu<R: tauri::Runtime>(
         .build(app)?;
     let quit_item = MenuItemBuilder::new("退出").id("quit").build(app)?;
 
+    #[allow(unused_mut)]
     let mut menu = MenuBuilder::new(app)
         .item(&always_on_top_item)
         .item(&autostart_item)
         .separator()
-        .item(&minimize_item)
-        .item(&restore_pins_item)
-        .item(&close_pins_item);
+        .item(&minimize_item);
+    // 贴图菜单项随截图功能一并门控（macOS 停用）；照 sedentary 的既有写法追加。
+    #[cfg(screenshot_supported)]
+    {
+        menu = menu.item(&restore_pins_item).item(&close_pins_item);
+    }
     #[cfg(sedentary_supported)]
     {
         menu = menu.item(&sedentary_enabled_item);
@@ -233,6 +240,7 @@ pub(crate) fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                         let _ = window.hide();
                     }
                 }
+                #[cfg(screenshot_supported)]
                 "restore_pins" => {
                     let registry =
                         app.state::<std::sync::Arc<crate::screenshot_shared::pin::PinRegistry>>();
@@ -243,6 +251,7 @@ pub(crate) fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                     }
                     refresh_pin_tray(app);
                 }
+                #[cfg(screenshot_supported)]
                 "close_pins" => {
                     let registry =
                         app.state::<std::sync::Arc<crate::screenshot_shared::pin::PinRegistry>>();
