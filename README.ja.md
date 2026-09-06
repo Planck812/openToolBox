@@ -17,7 +17,9 @@
 
 [English](README.md) · [中文](README.zh-CN.md) · **日本語** · [Deutsch](README.de.md) · [変更履歴](CHANGELOG.md)
 
-### [⬇️  Windows 版をダウンロード](https://github.com/Planck812/openToolBox/releases/latest)
+### [⬇️  Windows 版をダウンロード](https://github.com/Planck812/openToolBox/releases/latest) · [⬇️  macOS 版をダウンロード](https://github.com/Planck812/openToolBox/releases/latest)
+
+<sub>macOS 版は Apple Silicon 専用かつ未署名です。初回起動時の許可手順は[インストール](#インストール)を参照してください。</sub>
 
 <!-- docs/images/demo.gif にデモ GIF を置き、次の行のコメントを解除してください。
 <img src="docs/images/demo.gif" alt="Open-Toolbox デモ" width="720" />
@@ -71,16 +73,16 @@
 - Curl ランナー
 - AES 暗号化
 - 環境変数設定
-- ポート強制終了
+- ポート強制終了 <sup>Win</sup>
 - Mermaid プレビュー
 - 電卓
 
 </td><td valign="top" width="25%">
 
 **🚀 生産性**
-- スクリーンショット（範囲 / 要素 / スクロール）
+- スクリーンショット（範囲 / 要素 / スクロール） <sup>Win</sup>
 - OCR 文字認識
-- 付箋
+- 付箋 <sup>Win</sup>
 - メモ
 - パスワード管理
 - タイマーセンター
@@ -89,19 +91,34 @@
 </td></tr>
 </table>
 
+<sub><sup>Win</sup> Windows 専用です。理由は[インストール](#インストール)を参照してください。</sub>
+
 ## グローバルショートカット
 
 | 動作 | 既定値 | 設定変更 |
 |---|---|---|
 | メインウィンドウ呼び出し | `Alt+Space` | ✅ 設定画面 |
-| ユニバーサルスクリーンショット | `Ctrl+Shift+S` | ✅ 設定画面 |
-| 付箋を貼る | `Ctrl+Shift+T` | ✅ 設定画面 |
+| ユニバーサルスクリーンショット | `Ctrl+Shift+S` | ✅ 設定画面 · ❌ macOS 非対応 |
+| 付箋を貼る | `Ctrl+Shift+T` | ✅ 設定画面 · ❌ macOS 非対応 |
 
 ## インストール
 
 **Windows** ── [Releases](https://github.com/Planck812/openToolBox/releases/latest) からインストーラーを取得してください。Windows 10 では [WebView2 ランタイム](https://developer.microsoft.com/microsoft-edge/webview2/) が別途必要な場合があります（Windows 11 は同梱済み）。
 
-**macOS / Linux** ── 現時点ではソースからのビルドが必要です。ビルド済みパッケージは計画中です。
+**macOS** ── [Releases](https://github.com/Planck812/openToolBox/releases/latest) から `.dmg` をダウンロードし、アプリを「アプリケーション」へドラッグしてください。**Apple Silicon 専用**です。Intel Mac ではソースからのビルドが必要です。
+
+> このアプリは **Apple Developer ID で署名されていない**ため、初回起動時に「開発元を検証できないため開けません」と表示されてブロックされます。許可する方法：
+>
+> **アプリを右クリック → 「開く」→ もう一度「開く」**。ダブルクリックではこの選択肢が出ないため、必ず右クリックメニューから操作してください。一度許可すれば macOS が記憶し、同じバージョンでは再度尋ねられません。
+>
+> あるいは **システム設定 → プライバシーとセキュリティ** を開き、下へスクロールしてブロックされたアプリの横の **このまま開く** をクリックします。
+
+macOS に関する補足が 2 点：
+
+- **一部のツールは利用できません**：ユニバーサルスクリーンショット、付箋、ポート強制終了は現時点で Windows 専用です。前者 2 つは macOS 実装に既知の不具合があり、不完全なまま提供するより無効化しています。ポート強制終了は Windows 固有のコマンドに依存しています。
+- **パスワード保管庫**はマスターキーを初めて読み取る際にキーチェーンへのアクセスを求めます。**常に許可**を選べば以降は表示されませんが、この許可はアプリのバイナリに紐づくため、新しいバージョンでは再度許可が必要です。
+
+**Linux** ── 現時点ではソースからのビルドが必要です。ビルド済みパッケージは計画中です。
 
 ## ソースからビルド
 

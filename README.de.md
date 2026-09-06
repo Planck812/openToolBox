@@ -17,7 +17,9 @@ Keine Suche mehr nach irgendeinem Online-JSON-Formatter. `Alt+Space` drücken, e
 
 [English](README.md) · [中文](README.zh-CN.md) · [日本語](README.ja.md) · **Deutsch** · [Änderungsprotokoll](CHANGELOG.md)
 
-### [⬇️  Für Windows herunterladen](https://github.com/Planck812/openToolBox/releases/latest)
+### [⬇️  Für Windows herunterladen](https://github.com/Planck812/openToolBox/releases/latest) · [⬇️  Für macOS herunterladen](https://github.com/Planck812/openToolBox/releases/latest)
+
+<sub>macOS-Builds laufen nur auf Apple Silicon und sind unsigniert – siehe [Installation](#installation) für den einmaligen Gatekeeper-Schritt.</sub>
 
 <!-- Demo-GIF unter docs/images/demo.gif ablegen und die folgende Zeile einkommentieren.
 <img src="docs/images/demo.gif" alt="Open-Toolbox Demo" width="720" />
@@ -71,16 +73,16 @@ Keine Suche mehr nach irgendeinem Online-JSON-Formatter. `Alt+Space` drücken, e
 - Curl-Runner
 - AES-Verschlüsselung
 - Umgebungsvariablen
-- Port-Killer
+- Port-Killer <sup>Win</sup>
 - Mermaid-Vorschau
 - Rechner
 
 </td><td valign="top" width="25%">
 
 **🚀 Produktivität**
-- Screenshot (Bereich / Element / Scrollend)
+- Screenshot (Bereich / Element / Scrollend) <sup>Win</sup>
 - OCR
-- Klebezettel
+- Klebezettel <sup>Win</sup>
 - Notizen
 - Passworttresor
 - Timer-Zentrale
@@ -89,19 +91,34 @@ Keine Suche mehr nach irgendeinem Online-JSON-Formatter. `Alt+Space` drücken, e
 </td></tr>
 </table>
 
+<sub><sup>Win</sup> Nur unter Windows – Begründung siehe [Installation](#installation).</sub>
+
 ## Globale Tastenkürzel
 
 | Aktion | Standard | Konfigurierbar |
 |---|---|---|
 | Hauptfenster aufrufen | `Alt+Space` | ✅ Einstellungen |
-| Universeller Screenshot | `Ctrl+Shift+S` | ✅ Einstellungen |
-| Klebezettel anlegen | `Ctrl+Shift+T` | ✅ Einstellungen |
+| Universeller Screenshot | `Ctrl+Shift+S` | ✅ Einstellungen · ❌ nicht unter macOS |
+| Klebezettel anlegen | `Ctrl+Shift+T` | ✅ Einstellungen · ❌ nicht unter macOS |
 
 ## Installation
 
 **Windows** – Installer über die [Releases](https://github.com/Planck812/openToolBox/releases/latest) beziehen. Unter Windows 10 wird ggf. die [WebView2-Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) benötigt (in Windows 11 enthalten).
 
-**macOS / Linux** – derzeit nur Build aus dem Quellcode; vorgefertigte Pakete sind geplant.
+**macOS** – `.dmg` aus den [Releases](https://github.com/Planck812/openToolBox/releases/latest) laden und die App nach „Programme" ziehen. **Nur Apple Silicon**; Intel-Macs benötigen einen Build aus dem Quellcode.
+
+> Die App ist **nicht mit einer Apple Developer ID signiert**. Der erste Start wird daher mit „kann nicht geöffnet werden, da der Entwickler nicht verifiziert werden kann" blockiert. So geben Sie sie einmalig frei:
+>
+> **Rechtsklick auf die App → Öffnen → Öffnen**. Ein Doppelklick bietet diese Option **nicht** an – der Weg über das Kontextmenü ist zwingend. macOS merkt sich die Entscheidung; pro Version ist das nur einmal nötig.
+>
+> Alternativ: **Systemeinstellungen → Datenschutz & Sicherheit**, nach unten scrollen und neben dem Hinweis auf die blockierte App auf **Trotzdem öffnen** klicken.
+
+Zwei weitere Hinweise zu macOS:
+
+- **Einige Werkzeuge fehlen**: Universeller Screenshot, Klebezettel und Port-Killer sind vorerst Windows-exklusiv. Die ersten beiden haben bekannte Defekte unter macOS und sind deshalb deaktiviert, statt fehlerhaft ausgeliefert zu werden; der Port-Killer setzt auf Windows-spezifische Befehle.
+- **Der Passwort-Tresor** fragt beim ersten Lesen seines Hauptschlüssels nach Schlüsselbund-Zugriff. Mit **Immer erlauben** bleibt es künftig still – bis zur nächsten Version, da die Freigabe an das App-Binary gebunden ist.
+
+**Linux** – derzeit nur Build aus dem Quellcode; vorgefertigte Pakete sind geplant.
 
 ## Aus dem Quellcode bauen
 

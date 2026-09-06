@@ -17,7 +17,9 @@
 
 [English](README.md) · **中文** · [日本語](README.ja.md) · [Deutsch](README.de.md) · [更新日志](CHANGELOG.md)
 
-### [⬇️  下载 Windows 版](https://github.com/Planck812/openToolBox/releases/latest)
+### [⬇️  下载 Windows 版](https://github.com/Planck812/openToolBox/releases/latest) · [⬇️  下载 macOS 版](https://github.com/Planck812/openToolBox/releases/latest)
+
+<sub>macOS 版仅支持 Apple Silicon，且未经签名 —— 首次打开需一次性放行，见[安装](#安装)。</sub>
 
 <!-- 把演示 GIF 放到 docs/images/demo.gif，然后取消下面一行的注释。
 <img src="docs/images/demo.gif" alt="Open-Toolbox 演示" width="720" />
@@ -71,16 +73,16 @@
 - Curl 执行器
 - AES 加解密
 - 环境变量设置
-- 端口占用杀手
+- 端口占用杀手 <sup>Win</sup>
 - Mermaid 预览
 - 计算器
 
 </td><td valign="top" width="25%">
 
 **🚀 效率工具**
-- 全平台截图（选区 / 控件 / 滚动长图）
+- 全平台截图（选区 / 控件 / 滚动长图） <sup>Win</sup>
 - OCR 文字识别
-- 便利贴
+- 便利贴 <sup>Win</sup>
 - 备忘录
 - 密码夹
 - 计时中心
@@ -89,19 +91,34 @@
 </td></tr>
 </table>
 
+<sub><sup>Win</sup> 仅 Windows 提供，原因见[安装](#安装)。</sub>
+
 ## 全局快捷键
 
 | 动作 | 默认 | 可配置 |
 |---|---|---|
 | 唤起主窗口 | `Alt+Space` | ✅ 设置页 |
-| 全平台截图 | `Ctrl+Shift+S` | ✅ 设置页 |
-| 贴出便利贴 | `Ctrl+Shift+T` | ✅ 设置页 |
+| 全平台截图 | `Ctrl+Shift+S` | ✅ 设置页 · ❌ macOS 不提供 |
+| 贴出便利贴 | `Ctrl+Shift+T` | ✅ 设置页 · ❌ macOS 不提供 |
 
 ## 安装
 
 **Windows** —— 从 [Releases](https://github.com/Planck812/openToolBox/releases/latest) 下载安装包。Windows 10 可能需要额外安装 [WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)（Windows 11 已内置）。
 
-**macOS / Linux** —— 目前需自行源码构建，预编译包在计划中。
+**macOS** —— 从 [Releases](https://github.com/Planck812/openToolBox/releases/latest) 下载 `.dmg`，把应用拖进「应用程序」。**仅支持 Apple Silicon**，Intel 机型需自行源码构建。
+
+> 应用**未使用 Apple 开发者证书签名**，首次打开会被拦下，提示「无法打开，因为无法验证开发者」。放行方法：
+>
+> **右键点击应用 → 打开 → 再次点「打开」**。注意双击**不会**出现放行选项，必须走右键菜单。放行后 macOS 会记住，同一版本不再询问。
+>
+> 或者：**系统设置 → 隐私与安全性**，向下滚动，在被拦截应用的提示旁点**仍要打开**。
+
+另有两点 macOS 说明：
+
+- **部分工具不提供**：全平台截图、便利贴、端口占用杀手暂为 Windows 专属 —— 前两者的 macOS 实现存在已知缺陷，与其带着 bug 发布不如先停用；端口占用杀手依赖 Windows 专有命令。
+- **密码夹**首次读取主密钥时会请求钥匙串授权，选**始终允许**即可不再打扰 —— 但授权绑定应用二进制，升级到新版本后需再授权一次。
+
+**Linux** —— 目前需自行源码构建，预编译包在计划中。
 
 ## 从源码构建
 

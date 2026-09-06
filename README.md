@@ -17,7 +17,9 @@ Stop hunting for that random online JSON formatter. Hit `Alt+Space`, paste, done
 
 **English** · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [Deutsch](README.de.md) · [Changelog](CHANGELOG.md)
 
-### [⬇️  Download for Windows](https://github.com/Planck812/openToolBox/releases/latest)
+### [⬇️  Download for Windows](https://github.com/Planck812/openToolBox/releases/latest) · [⬇️  Download for macOS](https://github.com/Planck812/openToolBox/releases/latest)
+
+<sub>macOS builds are Apple Silicon only and unsigned — see [Install](#install) for the one-time Gatekeeper step.</sub>
 
 <!-- Drop a demo GIF at docs/images/demo.gif and uncomment the line below.
 <img src="docs/images/demo.gif" alt="Open-Toolbox demo" width="720" />
@@ -71,16 +73,16 @@ Stop hunting for that random online JSON formatter. Hit `Alt+Space`, paste, done
 - Curl Runner
 - AES Crypto
 - Env Variables
-- Port Killer
+- Port Killer <sup>Win</sup>
 - Mermaid Preview
 - Calculator
 
 </td><td valign="top" width="25%">
 
 **🚀 Productivity**
-- Screenshot (region / element / scrolling)
+- Screenshot (region / element / scrolling) <sup>Win</sup>
 - OCR
-- Sticky Notes
+- Sticky Notes <sup>Win</sup>
 - Memo
 - Password Vault
 - Timer Center
@@ -89,19 +91,34 @@ Stop hunting for that random online JSON formatter. Hit `Alt+Space`, paste, done
 </td></tr>
 </table>
 
+<sub><sup>Win</sup> Windows only — see [Install](#install) for why.</sub>
+
 ## Shortcuts
 
 | Action | Default | Configurable |
 |---|---|---|
 | Summon main window | `Alt+Space` | ✅ Settings |
-| Universal screenshot | `Ctrl+Shift+S` | ✅ Settings |
-| Drop a sticky note | `Ctrl+Shift+T` | ✅ Settings |
+| Universal screenshot | `Ctrl+Shift+S` | ✅ Settings · ❌ not on macOS |
+| Drop a sticky note | `Ctrl+Shift+T` | ✅ Settings · ❌ not on macOS |
 
 ## Install
 
 **Windows** — grab the installer from [Releases](https://github.com/Planck812/openToolBox/releases/latest). Windows 10 users may need the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (bundled in Windows 11).
 
-**macOS / Linux** — build from source for now; prebuilt bundles are on the roadmap.
+**macOS** — download the `.dmg` from [Releases](https://github.com/Planck812/openToolBox/releases/latest) and drag the app into Applications. **Apple Silicon only**; Intel Macs need a source build.
+
+> The app is **not signed with an Apple Developer ID**, so the first launch is blocked with *"cannot be opened because the developer cannot be verified"*. To get past it once:
+>
+> **Right-click the app → Open → Open**. Double-clicking will not offer the bypass — you have to use the right-click menu. macOS remembers the choice, so this is a one-time step per version.
+>
+> Alternatively: **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the blocked-app notice.
+
+Two more macOS notes:
+
+- **Some tools are unavailable**: Universal Screenshot, Sticky Notes and Port Killer are Windows-only for now — the first two have known macOS defects and are disabled rather than shipped broken; Port Killer relies on Windows-specific commands.
+- **Password Vault** asks for keychain access the first time it reads its master key. Choose **Always Allow** and it stays quiet — until the next version, since the grant is bound to the app binary.
+
+**Linux** — build from source for now; prebuilt bundles are on the roadmap.
 
 ## Build from source
 
