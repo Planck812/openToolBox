@@ -109,9 +109,14 @@ Keine Suche mehr nach irgendeinem Online-JSON-Formatter. `Alt+Space` drücken, e
 
 > Die App ist **nicht mit einer Apple Developer ID signiert**. Der erste Start wird daher mit „kann nicht geöffnet werden, da der Entwickler nicht verifiziert werden kann" blockiert. So geben Sie sie einmalig frei:
 >
-> **Rechtsklick auf die App → Öffnen → Öffnen**. Ein Doppelklick bietet diese Option **nicht** an – der Weg über das Kontextmenü ist zwingend. macOS merkt sich die Entscheidung; pro Version ist das nur einmal nötig.
+> 1. **Zuerst die App doppelklicken**, damit sie blockiert wird. Dieser Schritt ist nötig: Erst dadurch landet die App auf der Sperrliste, aus der der nächste Schritt sie freigibt.
+> 2. **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, zu „Sicherheit" scrollen und neben dem Hinweis zu open-toolbox auf **Trotzdem öffnen** klicken; anschließend im Dialog bestätigen.
 >
-> Alternativ: **Systemeinstellungen → Datenschutz & Sicherheit**, nach unten scrollen und neben dem Hinweis auf die blockierte App auf **Trotzdem öffnen** klicken.
+> macOS merkt sich die Entscheidung – pro Version ist das nur einmal nötig.
+>
+> Ein Rechtsklick auf die App und „Öffnen" funktioniert manchmal ebenfalls, kann unter neueren macOS-Versionen aber wirkungslos bleiben, sobald die App bereits abgelehnt wurde. Wenn Sie nicht weiterkommen, nutzen Sie den Weg über die Systemeinstellungen – der ist zuverlässig.
+>
+> Gatekeeper **muss nicht** deaktiviert werden (`spctl --master-disable`), ebenso wenig „Apps aus allen Quellen zulassen". Bitte tun Sie das auch nicht – es senkt die Sicherheit des gesamten Systems weit über das hinaus, was für diese App nötig wäre.
 
 Zwei weitere Hinweise zu macOS:
 
