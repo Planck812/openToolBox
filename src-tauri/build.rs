@@ -11,8 +11,24 @@ fn main() {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-lib=framework=LocalAuthentication");
 
-    println!("cargo::rustc-check-cfg=cfg(sedentary_supported)");
+    // 全平台截图的门控别名。macOS 端实现存在已知缺陷，暂时停用；
+    // Windows 与 Linux(X11) 不受影响。
+    // 该门禁同时覆盖截图工具本身、全局截图快捷键、贴图（pin）托盘项与恢复快捷键 ——
+    // 只关工具入口不够：快捷键独立于工具注册表，仍会触发同一段代码。
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    println!("cargo::rustc-check-cfg=cfg(screenshot_supported)");
+    if target_os != "macos" {
+        println!("cargo::rustc-cfg=screenshot_supported");
+    }
+
+    // 便利贴的门控别名。macOS 端实现存在已知缺陷，暂时停用；
+    // 覆盖工具入口与两个全局快捷键（便利贴 / 单便利贴）。
+    println!("cargo::rustc-check-cfg=cfg(sticky_supported)");
+    if target_os != "macos" {
+        println!("cargo::rustc-cfg=sticky_supported");
+    }
+
+    println!("cargo::rustc-check-cfg=cfg(sedentary_supported)");
     if matches!(target_os.as_str(), "windows" | "macos") {
         println!("cargo::rustc-cfg=sedentary_supported");
     }

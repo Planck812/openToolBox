@@ -167,33 +167,40 @@ export function useShortcutSync(deps: { navigation: ShortcutSyncNavigation }) {
 
     await syncHomeShortcut(homeShortcut.value);
     await syncShowShortcut(showShortcut.value);
-    const universalSynced = await syncUniversalScreenshotShortcut(universalScreenshotShortcut.value);
-    if (!universalSynced) {
-      store.showToast(t('common.screenshot_shortcut_mount_failed'), {
-        type: 'error',
-        durationMs: 4000,
-      });
-    }
-    const stickySynced = await syncStickyShortcut(store.stickyShortcut);
-    if (!stickySynced) {
-      store.showToast(t('common.sticky_shortcut_mount_failed'), {
-        type: 'error',
-        durationMs: 4000,
-      });
-    }
-    const singleStickySynced = await syncSingleStickyShortcut(store.singleStickyShortcut);
-    if (!singleStickySynced) {
-      store.showToast(t('common.single_sticky_shortcut_mount_failed'), {
-        type: 'error',
-        durationMs: 4000,
-      });
-    }
-    const pinRecoverySynced = await syncPinRecoveryShortcut(store.pinRecoveryShortcut);
-    if (!pinRecoverySynced) {
-      store.showToast(t('common.pin_recovery_shortcut_mount_failed'), {
-        type: 'error',
-        durationMs: 4000,
-      });
+    // macOS 上截图与便利贴功能已停用，其快捷键不再注册，故这里也不发起同步 ——
+    // 否则后端如实返回「未注册」，前端会据此判定失败并弹出「注册失败，请前往设置
+    // 重新设置」的告警，把一个刻意的停用显示成故障，且引导用户去做无效操作。
+    if (!__IS_MACOS__) {
+      const universalSynced = await syncUniversalScreenshotShortcut(
+        universalScreenshotShortcut.value,
+      );
+      if (!universalSynced) {
+        store.showToast(t('common.screenshot_shortcut_mount_failed'), {
+          type: 'error',
+          durationMs: 4000,
+        });
+      }
+      const stickySynced = await syncStickyShortcut(store.stickyShortcut);
+      if (!stickySynced) {
+        store.showToast(t('common.sticky_shortcut_mount_failed'), {
+          type: 'error',
+          durationMs: 4000,
+        });
+      }
+      const singleStickySynced = await syncSingleStickyShortcut(store.singleStickyShortcut);
+      if (!singleStickySynced) {
+        store.showToast(t('common.single_sticky_shortcut_mount_failed'), {
+          type: 'error',
+          durationMs: 4000,
+        });
+      }
+      const pinRecoverySynced = await syncPinRecoveryShortcut(store.pinRecoveryShortcut);
+      if (!pinRecoverySynced) {
+        store.showToast(t('common.pin_recovery_shortcut_mount_failed'), {
+          type: 'error',
+          durationMs: 4000,
+        });
+      }
     }
 
     try {
@@ -354,82 +361,87 @@ export function useShortcutSync(deps: { navigation: ShortcutSyncNavigation }) {
       }
     );
 
-    // 监听全平台截图快捷键变更，实时重新注册
-    stopWatchUniversalScreenshotShortcut = watch(
-      () => universalScreenshotShortcut.value,
-      async (value, oldValue) => {
-        const registered = await syncUniversalScreenshotShortcut(value);
-        if (!registered) {
-          await handleShortcutSyncFailure(
-            value,
-            oldValue,
-            syncUniversalScreenshotShortcut,
-            (v) => store.setUniversalScreenshotShortcut(v),
-            t('app.shortcut_label_screenshot'),
-          );
-          return;
-        }
+    // macOS 上截图与便利贴功能已停用，其快捷键不注册，故不监听变更 ——
+    // 否则用户在设置页改动会走到「注册失败」回滚分支，把停用显示成故障。
+    // 设置页对应条目亦已隐藏（见 SettingsView）。
+    if (!__IS_MACOS__) {
+      // 监听全平台截图快捷键变更，实时重新注册
+      stopWatchUniversalScreenshotShortcut = watch(
+        () => universalScreenshotShortcut.value,
+        async (value, oldValue) => {
+          const registered = await syncUniversalScreenshotShortcut(value);
+          if (!registered) {
+            await handleShortcutSyncFailure(
+              value,
+              oldValue,
+              syncUniversalScreenshotShortcut,
+              (v) => store.setUniversalScreenshotShortcut(v),
+              t('app.shortcut_label_screenshot'),
+            );
+            return;
+          }
 
-        await logToFile('info', 'Universal screenshot shortcut preference updated to:', value);
-      }
-    );
-
-    // 监听便利贴快捷键变更，实时重新注册
-    stopWatchStickyShortcut = watch(
-      () => store.stickyShortcut,
-      async (value, oldValue) => {
-        const registered = await syncStickyShortcut(value);
-        if (!registered) {
-          await handleShortcutSyncFailure(
-            value,
-            oldValue,
-            syncStickyShortcut,
-            (v) => store.setStickyShortcut(v),
-            t('app.shortcut_label_sticky'),
-          );
-          return;
+          await logToFile('info', 'Universal screenshot shortcut preference updated to:', value);
         }
-        await logToFile('info', 'Sticky shortcut preference updated to:', value);
-      }
-    );
+      );
 
-    // 监听单便利贴快捷键变更，实时重新注册
-    stopWatchSingleStickyShortcut = watch(
-      () => store.singleStickyShortcut,
-      async (value, oldValue) => {
-        const registered = await syncSingleStickyShortcut(value);
-        if (!registered) {
-          await handleShortcutSyncFailure(
-            value,
-            oldValue,
-            syncSingleStickyShortcut,
-            (v) => store.setSingleStickyShortcut(v),
-            t('app.shortcut_label_single_sticky'),
-          );
-          return;
+      // 监听便利贴快捷键变更，实时重新注册
+      stopWatchStickyShortcut = watch(
+        () => store.stickyShortcut,
+        async (value, oldValue) => {
+          const registered = await syncStickyShortcut(value);
+          if (!registered) {
+            await handleShortcutSyncFailure(
+              value,
+              oldValue,
+              syncStickyShortcut,
+              (v) => store.setStickyShortcut(v),
+              t('app.shortcut_label_sticky'),
+            );
+            return;
+          }
+          await logToFile('info', 'Sticky shortcut preference updated to:', value);
         }
-        await logToFile('info', 'Single sticky shortcut preference updated to:', value);
-      }
-    );
+      );
 
-    // 监听恢复全部贴图交互快捷键变更，实时重新注册
-    stopWatchPinRecoveryShortcut = watch(
-      () => store.pinRecoveryShortcut,
-      async (value, oldValue) => {
-        const registered = await syncPinRecoveryShortcut(value);
-        if (!registered) {
-          await handleShortcutSyncFailure(
-            value,
-            oldValue,
-            syncPinRecoveryShortcut,
-            (v) => store.setPinRecoveryShortcut(v),
-            t('app.shortcut_label_pin_recovery'),
-          );
-          return;
+      // 监听单便利贴快捷键变更，实时重新注册
+      stopWatchSingleStickyShortcut = watch(
+        () => store.singleStickyShortcut,
+        async (value, oldValue) => {
+          const registered = await syncSingleStickyShortcut(value);
+          if (!registered) {
+            await handleShortcutSyncFailure(
+              value,
+              oldValue,
+              syncSingleStickyShortcut,
+              (v) => store.setSingleStickyShortcut(v),
+              t('app.shortcut_label_single_sticky'),
+            );
+            return;
+          }
+          await logToFile('info', 'Single sticky shortcut preference updated to:', value);
         }
-        await logToFile('info', 'Pin recovery shortcut preference updated to:', value);
-      }
-    );
+      );
+
+      // 监听恢复全部贴图交互快捷键变更，实时重新注册
+      stopWatchPinRecoveryShortcut = watch(
+        () => store.pinRecoveryShortcut,
+        async (value, oldValue) => {
+          const registered = await syncPinRecoveryShortcut(value);
+          if (!registered) {
+            await handleShortcutSyncFailure(
+              value,
+              oldValue,
+              syncPinRecoveryShortcut,
+              (v) => store.setPinRecoveryShortcut(v),
+              t('app.shortcut_label_pin_recovery'),
+            );
+            return;
+          }
+          await logToFile('info', 'Pin recovery shortcut preference updated to:', value);
+        }
+      );
+    }
 
     // 监听工具级拉起快捷键映射变更，防抖同步到后端；冲突/失败时回滚并提示。
     let toolShortcutsSnapshot: Record<string, string> = JSON.parse(JSON.stringify(store.toolShortcuts));

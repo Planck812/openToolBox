@@ -39,10 +39,16 @@ const navItems: NavGroup[] = [
   { groupKey: 'settings.nav_group_shortcuts', children: [
     { id: 'shortcut-home', labelKey: 'common.home_shortcut_label' },
     { id: 'shortcut-show', labelKey: 'common.show_shortcut_label' },
-    { id: 'shortcut-screenshot', labelKey: 'common.universal_screenshot_shortcut_label' },
-    { id: 'shortcut-sticky', labelKey: 'common.sticky_shortcut_label' },
-    { id: 'shortcut-single-sticky', labelKey: 'common.single_sticky_shortcut_label' },
-    { id: 'shortcut-pin-recovery', labelKey: 'common.pin_recovery_shortcut_label' },
+    // macOS 上截图与便利贴功能已停用，其快捷键不注册，故不在设置中暴露 ——
+    // 留着会让用户设置一个永远不生效的快捷键。
+    ...(__IS_MACOS__
+      ? []
+      : ([
+          { id: 'shortcut-screenshot', labelKey: 'common.universal_screenshot_shortcut_label' },
+          { id: 'shortcut-sticky', labelKey: 'common.sticky_shortcut_label' },
+          { id: 'shortcut-single-sticky', labelKey: 'common.single_sticky_shortcut_label' },
+          { id: 'shortcut-pin-recovery', labelKey: 'common.pin_recovery_shortcut_label' },
+        ] as { id: SettingNavId; labelKey: string }[])),
     { id: 'shortcut-tools', labelKey: 'common.tool_shortcuts_label' },
     { id: 'shortcut-pipelines', labelKey: 'common.pipeline_shortcuts_label' },
   ]},
@@ -106,7 +112,7 @@ interface ShortcutConfig {
   shortcutRef: Ref<string>;
 }
 
-const shortcutConfigs: ShortcutConfig[] = [
+const allShortcutConfigs: ShortcutConfig[] = [
   {
     id: 'shortcut-home',
     labelKey: 'common.home_shortcut_label',
@@ -186,6 +192,21 @@ const shortcutConfigs: ShortcutConfig[] = [
     shortcutRef: pinRecoveryShortcut,
   },
 ];
+
+/**
+ * macOS 上截图与便利贴功能已停用，其快捷键不注册，故设置中不暴露对应编辑项 ——
+ * 留着会让用户设置一个永远不生效的快捷键。侧边导航同步过滤。
+ */
+const MACOS_DISABLED_SHORTCUT_IDS: SettingNavId[] = [
+  'shortcut-screenshot',
+  'shortcut-sticky',
+  'shortcut-single-sticky',
+  'shortcut-pin-recovery',
+];
+
+const shortcutConfigs: ShortcutConfig[] = __IS_MACOS__
+  ? allShortcutConfigs.filter((c) => !MACOS_DISABLED_SHORTCUT_IDS.includes(c.id))
+  : allShortcutConfigs;
 
 const isShortcutSection = computed(() => shortcutConfigs.some((config) => config.id === activeId.value));
 

@@ -14,6 +14,7 @@ export default defineConfig({
   // 测试统一以 Windows 目标运行，保证工具注册表是全集，用例不受平台裁剪影响。
   define: {
     __IS_WINDOWS__: JSON.stringify(true),
+    __IS_MACOS__: JSON.stringify(false),
   },
   test: {
     environment: 'jsdom',

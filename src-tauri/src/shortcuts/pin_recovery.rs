@@ -16,6 +16,15 @@ pub fn register_pin_recovery_shortcut<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     shortcut: &str,
 ) -> Result<(), String> {
+    // macOS 上截图功能已停用，而贴图（pin）由截图产生，此快捷键无对象可作用，
+    // 一并不注册，免得白占一个全局热键。
+    #[cfg(not(screenshot_supported))]
+    {
+        let _ = (app, shortcut);
+        return Ok(());
+    }
+
+    #[cfg(screenshot_supported)]
     app.global_shortcut()
         .on_shortcut(shortcut, move |app_handle, _shortcut, event| {
             if event.state != ShortcutState::Pressed {
@@ -40,6 +49,20 @@ pub fn sync_pin_recovery_shortcut<R: tauri::Runtime>(
     shortcut_state: tauri::State<'_, ShortcutRuntimeState>,
     shortcut: String,
 ) -> ShortcutSyncResponse {
+    // 贴图随截图功能一并停用：如实返回「未注册」，避免日志报成功而与实际相反。
+    #[cfg(not(screenshot_supported))]
+    {
+        let _ = (&app, &shortcut_state, &shortcut);
+        return ShortcutSyncResponse {
+            success: true,
+            requested_shortcut: shortcut,
+            registered_shortcut: None,
+            error: Some("当前平台已停用截图/贴图功能".to_string()),
+        };
+    }
+
+    #[cfg(screenshot_supported)]
+    {
     let normalized = shortcut.trim().to_string();
     if normalized.is_empty() {
         let error = "快捷键不能为空".to_string();
@@ -89,5 +112,6 @@ pub fn sync_pin_recovery_shortcut<R: tauri::Runtime>(
                 error: Some(error),
             }
         }
+    }
     }
 }

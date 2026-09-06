@@ -19,6 +19,15 @@ pub fn register_sticky_shortcut<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     shortcut: &str,
 ) -> Result<(), String> {
+    // macOS 上便利贴功能已停用（实现存在已知缺陷）。快捷键独立于工具注册表，
+    // 若仍注册，用户按下即触发同一段代码 —— 只摘工具入口挡不住。
+    #[cfg(not(sticky_supported))]
+    {
+        let _ = (app, shortcut);
+        return Ok(());
+    }
+
+    #[cfg(sticky_supported)]
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
             if event.state != ShortcutState::Pressed {
@@ -43,6 +52,14 @@ pub fn register_single_sticky_shortcut<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     shortcut: &str,
 ) -> Result<(), String> {
+    // macOS 上便利贴功能已停用（实现存在已知缺陷）。快捷键独立于工具注册表，
+    // 若仍注册，用户按下即触发同一段代码 —— 只摘工具入口挡不住。
+    #[cfg(not(sticky_supported))]
+    {
+        let _ = (app, shortcut);
+        return Ok(());
+    }
+
     let _ = app.global_shortcut().unregister(shortcut);
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
@@ -96,6 +113,20 @@ pub fn sync_sticky_shortcut<R: tauri::Runtime>(
     shortcut_state: tauri::State<'_, ShortcutRuntimeState>,
     shortcut: String,
 ) -> ShortcutSyncResponse {
+    // macOS 上便利贴功能已停用：如实返回「未注册」，避免日志报成功而与实际相反。
+    #[cfg(not(sticky_supported))]
+    {
+        let _ = (&app, &shortcut_state, &shortcut);
+        return ShortcutSyncResponse {
+            success: true,
+            requested_shortcut: shortcut,
+            registered_shortcut: None,
+            error: Some("当前平台已停用便利贴功能".to_string()),
+        };
+    }
+
+    #[cfg(sticky_supported)]
+    {
     let normalized = shortcut.trim().to_string();
     if normalized.is_empty() {
         let error = "快捷键不能为空".to_string();
@@ -157,8 +188,8 @@ pub fn sync_sticky_shortcut<R: tauri::Runtime>(
             }
         }
     }
+    }
 }
-
 /// 同步单便利贴快捷键：先取消旧的，再注册新的；校验与其他快捷键的冲突。
 #[tauri::command]
 #[specta::specta]
@@ -167,6 +198,20 @@ pub fn sync_single_sticky_shortcut<R: tauri::Runtime>(
     shortcut_state: tauri::State<'_, ShortcutRuntimeState>,
     shortcut: String,
 ) -> ShortcutSyncResponse {
+    // macOS 上便利贴功能已停用：如实返回「未注册」，避免日志报成功而与实际相反。
+    #[cfg(not(sticky_supported))]
+    {
+        let _ = (&app, &shortcut_state, &shortcut);
+        return ShortcutSyncResponse {
+            success: true,
+            requested_shortcut: shortcut,
+            registered_shortcut: None,
+            error: Some("当前平台已停用便利贴功能".to_string()),
+        };
+    }
+
+    #[cfg(sticky_supported)]
+    {
     let normalized = shortcut.trim().to_string();
     if normalized.is_empty() {
         let error = "快捷键不能为空".to_string();
@@ -216,5 +261,6 @@ pub fn sync_single_sticky_shortcut<R: tauri::Runtime>(
                 error: Some(error),
             }
         }
+    }
     }
 }
