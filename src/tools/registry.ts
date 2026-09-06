@@ -31,6 +31,19 @@ import { aesTool } from './aes-tool';
 import { promptManagerTool } from './prompt-manager';
 import type { Tool } from './interface';
 
+/**
+ * 仅 Windows 可用的工具，在其他平台的构建产物中整体剔除。
+ *
+ * - `port-killer`：实现完全依赖 Windows 专有命令（`netstat -ano` 的参数形式、
+ *   `tasklist` / `taskkill` / `wmic`），且 shell 白名单里写死了
+ *   `C:\Windows\System32\*.exe` 路径。在 macOS / Linux 上点开必然报错，
+ *   与其让用户看到一个用不了的入口，不如不提供。
+ *
+ * `__IS_WINDOWS__` 由 vite.config.ts 在编译期替换为字面量，因此非 Windows
+ * 产物里这些工具的代码会被 tree-shake 掉，而不只是隐藏入口。
+ */
+const windowsOnlyTools: Tool[] = __IS_WINDOWS__ ? [portKillerTool] : [];
+
 export const tools: Tool[] = [
   jsonViewerTool,
   timestampTool,
@@ -43,7 +56,7 @@ export const tools: Tool[] = [
   imageBase64Tool,
   textDiffTool,
   textDedupTool,
-  portKillerTool,
+  ...windowsOnlyTools,
   calculatorTool,
   mermaidPreviewTool,
   uuidGeneratorTool,
