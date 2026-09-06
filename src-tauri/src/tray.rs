@@ -40,7 +40,7 @@ fn build_tray_menu<R: tauri::Runtime>(
     let close_pins_item = MenuItemBuilder::new("关闭全部贴图")
         .id("close_pins")
         .build(app)?;
-    #[cfg(windows)]
+    #[cfg(sedentary_supported)]
     let sedentary_enabled_item = {
         use tauri_plugin_store::StoreExt;
         let enabled = app
@@ -69,7 +69,7 @@ fn build_tray_menu<R: tauri::Runtime>(
         .item(&minimize_item)
         .item(&restore_pins_item)
         .item(&close_pins_item);
-    #[cfg(windows)]
+    #[cfg(sedentary_supported)]
     {
         menu = menu.item(&sedentary_enabled_item);
     }
@@ -158,6 +158,12 @@ pub(crate) fn create_quicklaunch_window(app: &mut tauri::App) -> Result<(), Stri
     .title("open-toolbox 快速唤起")
     .build()
     .map_err(|error| format!("创建快速唤起窗口失败：{error}"))?;
+    // 快捷唤起面板的意义就是「在用户当前所在处立刻出现」。macOS 上仅靠
+    // always_on_top 无法跨 Space，更无法浮在全屏应用之上（实测：全屏 Terminal
+    // 中按快捷键面板不出现，须手动切回本应用的 Space 才可见）。
+    if let Some(window) = app.get_webview_window("quicklaunch") {
+        crate::macos_overlay::make_window_float_across_spaces(&window);
+    }
     Ok(())
 }
 
@@ -209,7 +215,7 @@ pub(crate) fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                         refresh_pin_tray(app);
                     }
                 }
-                #[cfg(windows)]
+                #[cfg(sedentary_supported)]
                 "sedentary_enabled" => {
                     let state = app.state::<crate::sedentary::SedentaryState>();
                     let current = state.is_enabled();

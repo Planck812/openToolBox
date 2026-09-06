@@ -3694,7 +3694,7 @@ dependencies = [
 
 [[package]]
 name = "open-toolbox"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "aes-gcm",
  "arboard",
@@ -3706,6 +3706,7 @@ dependencies = [
  "keyring",
  "libc",
  "log",
+ "objc2",
  "rand 0.8.5",
  "serde",
  "serde_json",

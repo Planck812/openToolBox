@@ -1,6 +1,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod element_detect;
 mod env;
+mod macos_overlay;
 pub mod error;
 mod ocr;
 mod pwdbox;
@@ -159,18 +160,18 @@ macro_rules! sedentary_commands {
     ($builder:expr, [$($cmd:tt)*]) => {
         timer_commands!($builder, [$($cmd)*
             sedentary::sedentary_get_config,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_set_config,
             sedentary::sedentary_get_state,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_remind_action,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_toggle,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_preview,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_set_user_video,
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             sedentary::sedentary_reset_user_video,
         ])
     };
@@ -662,6 +663,11 @@ pub fn run() {
                         api.prevent_close();
                     } else if window.label().starts_with("pin-") {
                         crate::screenshot_shared::pin::cleanup_window_label(window.label());
+                    } else {
+                        // 悬浮面板（快捷唤起 / 久坐提醒）在 macOS 上被改类成了 NSPanel
+                        // 子类，销毁前必须还原原类，否则 webview 注销 KVO 观察者时崩溃。
+                        // 未改类过的窗口为空操作，故可无差别调用。
+                        crate::macos_overlay::restore_window_class(window);
                     }
                 }
                 tauri::WindowEvent::Destroyed => {

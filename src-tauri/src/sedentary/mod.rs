@@ -1,8 +1,12 @@
 //! 久坐提醒工具模块。
 //!
-//! 后台常驻服务：秒级轮询系统最后输入时间（Windows `GetLastInputInfo`），累计连续
-//! 操作时长；达到间隔阈值后弹出透明置顶无边框大窗提醒用户起身活动。macOS/Linux
-//! 不实现空闲检测（方案 A），命令返回 `supported: false`，托盘不显示开关。
+//! 后台常驻服务：秒级轮询系统最后输入时间，累计连续操作时长；达到间隔阈值后
+//! 弹出透明置顶无边框大窗提醒用户起身活动。
+//!
+//! 平台支持由 `sedentary_supported` cfg 别名统一门控（见 build.rs）。该功能唯一
+//! 的平台相关点是「读取系统空闲时长」，各平台实现见本文件末尾的 `get_idle_millis`：
+//! Windows 用 `GetLastInputInfo`，macOS 用 `CGEventSourceSecondsSinceLastEventType`。
+//! Linux 尚无实现，命令返回 `supported: false`，托盘不显示开关。
 //!
 //! 并发与一致性：`SedentaryState` 用原子量/锁保证轮询线程与 IPC 命令并发安全；
 //! 所有对 store 的「读-改-写」经 `store_lock` 串行化（照 sticky 的 store_lock 模式），
@@ -14,15 +18,15 @@
 
 mod config;
 mod video;
-// 弹窗窗口仅 Windows 有意义（WebView2 数据目录/透明置顶大窗），且全部函数均已按
-// `#[cfg(windows)]` 编译；模块整体门禁避免非 Windows 目标残留未用 import/常量告警。
-#[cfg(windows)]
+// 弹窗窗口本身是跨平台的 Tauri 窗口，但仅在支持空闲检测的平台上才会被触发；
+// 模块整体门禁避免不支持的目标上残留未用 import/常量告警。
+#[cfg(sedentary_supported)]
 mod window;
 
 pub use config::{QuietPeriod, SedentaryConfig};
 // 命令跨模块 re-export 时，`generate_handler!` 按定义模块生成 `__cmd__<name>`
 // 宏路径，因此命令宏与命令函数必须一并 re-export，lib.rs 的 `sedentary::*` 路径才可解析。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 #[allow(unused_imports)]
 pub use video::{
     ensure_reminder_video, sedentary_reset_user_video, sedentary_set_user_video,
@@ -118,19 +122,17 @@ impl SedentaryState {
     }
 }
 
-/// 应用启动时初始化久坐提醒：创建状态并从 store 灌入配置镜像，Windows 上先
-/// 确保提醒视频就位（复制失败回退无视频模式），再启动空闲检测轮询线程，并
-/// 后台预热独立 WebView2 环境（否则首次同步建窗会阻塞主线程事件循环，导致
-/// IPC 全挂——真机复现）。预热异步执行，不阻塞应用启动。
+/// 应用启动时初始化久坐提醒：创建状态并从 store 灌入配置镜像，支持的平台上先
+/// 确保提醒视频就位（复制失败回退无视频模式），再启动空闲检测轮询线程。
 pub fn initialize(app: &mut tauri::App) -> Result<(), String> {
-    // 久坐提醒状态：启动时从 store 灌入配置镜像，Windows 上先确保提醒视频
+    // 久坐提醒状态：启动时从 store 灌入配置镜像，支持的平台上先确保提醒视频
     // 就位（复制失败回退无视频模式），再启动空闲检测轮询线程。
     let sedentary_state = SedentaryState::new();
     sedentary_state.load_from_store(app.handle());
     app.manage(sedentary_state);
-    #[cfg(windows)]
+    #[cfg(sedentary_supported)]
     let _ = video::ensure_reminder_video(app.handle());
-    #[cfg(windows)]
+    #[cfg(sedentary_supported)]
     spawn_polling_thread(app.handle().clone());
     Ok(())
 }
@@ -151,7 +153,7 @@ pub struct SedentaryGetConfigResponse {
     video_enabled: bool,
     /// 提醒视频绝对路径；视频缺失/复制失败时为空串（无视频模式）。
     video_path: String,
-    /// 当前平台是否支持空闲检测（Windows 为 true）。
+    /// 当前平台是否支持空闲检测（Windows / macOS 为 true）。
     supported: bool,
     /// 屏蔽时段列表（空 = 不屏蔽）。
     quiet_periods: Vec<QuietPeriod>,
@@ -175,22 +177,22 @@ pub fn sedentary_get_config<R: Runtime>(
         })
     };
     Ok(SedentaryGetConfigResponse {
-        supported: cfg!(windows),
+        supported: cfg!(sedentary_supported),
         enabled: config.enabled,
         remind_minutes: config.remind_minutes,
         idle_reset_minutes: config.idle_reset_minutes,
         message: config.message,
         video_enabled: config.video_enabled,
         quiet_periods: config.quiet_periods,
-        // 仅 Windows 填充视频路径（顺带确保视频就位）；其余平台恒为空串。
+        // 支持的平台填充视频路径（顺带确保视频就位）；其余平台恒为空串。
         video_path: {
-            #[cfg(windows)]
+            #[cfg(sedentary_supported)]
             {
                 video::ensure_reminder_video(&app).map_or_else(String::new, |p| {
                     p.to_string_lossy().into_owned()
                 })
             }
-            #[cfg(not(windows))]
+            #[cfg(not(sedentary_supported))]
             {
                 String::new()
             }
@@ -200,9 +202,9 @@ pub fn sedentary_get_config<R: Runtime>(
 
 /// 更新配置并持久化；`remindMinutes`/`idleResetMinutes` 变更时重置当前计时。
 // 可选入参均映射 invoke 载荷字段（含屏蔽时段），数量超过 clippy 默认阈值，显式放行。
-// 仅 Windows：空闲检测/弹窗为 Windows 专属，前端以 `supported: false` 禁用交互
-// （tray 的 sedentary_enabled 菜单项同样已按 `#[cfg(windows)]` 门禁）。
-#[cfg(windows)]
+// 仅在支持空闲检测的平台注册；其余平台前端以 `supported: false` 禁用交互
+// （tray 的 sedentary_enabled 菜单项同样按 `sedentary_supported` 门禁）。
+#[cfg(sedentary_supported)]
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(rename_all = "camelCase")]
 #[specta::specta]
@@ -311,8 +313,8 @@ pub fn sedentary_get_state(
 
 /// 弹窗按钮动作：`got_up` = 已起身（重置计时并关窗）；`snooze` = 稍后（关窗，
 /// 5 分钟后再次提醒，计时持续累计）。
-/// 仅 Windows：动作作用于久坐提醒弹窗，该弹窗仅在 Windows 存在。
-#[cfg(windows)]
+/// 仅支持空闲检测的平台：动作作用于久坐提醒弹窗，该弹窗仅在这些平台上创建。
+#[cfg(sedentary_supported)]
 #[tauri::command]
 #[specta::specta]
 pub fn sedentary_remind_action<R: Runtime>(
@@ -342,8 +344,8 @@ pub fn sedentary_remind_action<R: Runtime>(
 }
 
 /// 总开关（托盘/工具页）。关闭时计时归零并关掉已开弹窗。
-/// 仅 Windows：开关与空闲检测轮询/弹窗绑定，非 Windows 前端以 `supported: false` 禁用。
-#[cfg(windows)]
+/// 仅支持空闲检测的平台：开关与空闲检测轮询/弹窗绑定，其余平台前端以 `supported: false` 禁用。
+#[cfg(sedentary_supported)]
 #[tauri::command]
 #[specta::specta]
 pub fn sedentary_toggle<R: Runtime>(
@@ -378,7 +380,7 @@ pub fn sedentary_toggle<R: Runtime>(
 ///
 /// 仅预览用途：不记录 `last_remind_at`、不消耗冷却期，也不影响真实触发逻辑
 /// （真实提醒仍由轮询线程的 `trigger_reminder` 驱动）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 #[tauri::command]
 #[specta::specta]
 pub fn sedentary_preview<R: Runtime>(app: AppHandle<R>) -> Result<(), AppError> {
@@ -406,7 +408,7 @@ pub fn sedentary_preview<R: Runtime>(app: AppHandle<R>) -> Result<(), AppError> 
 }
 
 // ---------------------------------------------------------------------------
-// 空闲检测轮询（仅 Windows）
+// 空闲检测轮询（仅 sedentary_supported 平台）
 // ---------------------------------------------------------------------------
 
 /// 触发判定（纯逻辑，便于测试）：久坐达到阈值且任一冷却期已过 → 触发。
@@ -439,7 +441,7 @@ fn should_trigger(
 }
 
 /// 触发提醒：记录冷却时刻，并把窗口创建派发到主线程（WebView 必须主线程创建）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 fn trigger_reminder<R: Runtime>(app: &AppHandle<R>, state: &SedentaryState) {
     if let Ok(mut last) = state.last_remind_at.lock() {
         *last = Some(Instant::now());
@@ -459,7 +461,7 @@ fn trigger_reminder<R: Runtime>(app: &AppHandle<R>, state: &SedentaryState) {
 }
 
 /// 启动轮询线程：每秒一次空闲检测 + 久坐累计 + 触发判定。独立线程，不阻塞 Tauri 主线程。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 pub fn spawn_polling_thread(app: AppHandle) {
     std::thread::spawn(move || {
         let state = app.state::<SedentaryState>();
@@ -472,7 +474,7 @@ pub fn spawn_polling_thread(app: AppHandle) {
 }
 
 /// 单次轮询逻辑（拆出来便于测试/维护）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 fn tick_polling<R: Runtime>(app: &AppHandle<R>, state: &SedentaryState) {
     if !state.enabled.load(Ordering::Relaxed) {
         // 关闭状态：计时归零，等待重新开启。
@@ -541,6 +543,39 @@ fn tick_polling<R: Runtime>(app: &AppHandle<R>, state: &SedentaryState) {
     ) {
         trigger_reminder(app, state);
     }
+}
+
+/// macOS：系统闲置毫秒数，取自 HID 系统事件源「距上次任意输入事件的秒数」。
+///
+/// `CGEventSourceSecondsSinceLastEventType` 是 CoreGraphics 的稳定公开 C API，
+/// 读取的是全局 HID 输入状态，**无需辅助功能 / 输入监控授权**（实测无权限弹窗），
+/// 这点与需要授权的 `CGEventTap` 不同。
+///
+/// 这里直接声明 extern 而不引入 `objc2-core-graphics` / `core-graphics`：
+/// 二者当前只是依赖树里的间接依赖（由 xcap 引入），提升为直接依赖会把本模块
+/// 绑定到 xcap 控制的 objc2 版本节奏上；而本函数只需要一个签名极简、自
+/// macOS 10.4 起未变过的 C 函数，显式 `#[link]` 更稳定且无新增依赖。
+#[cfg(target_os = "macos")]
+fn get_idle_millis() -> Option<u64> {
+    /// 事件源状态：HID 系统全局状态（对应 `kCGEventSourceStateHIDSystemState`）。
+    const HID_SYSTEM_STATE: u32 = 1;
+    /// 任意输入事件类型（对应 `kCGAnyInputEventType`）。
+    const ANY_INPUT_EVENT_TYPE: u32 = 0xFFFF_FFFF;
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGEventSourceSecondsSinceLastEventType(state_id: u32, event_type: u32) -> f64;
+    }
+
+    // SAFETY: 纯值传入/值返回的 C 调用，无指针与所有权转移；参数为 API 定义的常量。
+    let seconds =
+        unsafe { CGEventSourceSecondsSinceLastEventType(HID_SYSTEM_STATE, ANY_INPUT_EVENT_TYPE) };
+    // 异常值（负数 / NaN / 无穷）视为读取失败，交由调用方按「无法判定」处理，
+    // 避免 as 转换在非有限值上产生未定义语义的结果。
+    if !seconds.is_finite() || seconds < 0.0 {
+        return None;
+    }
+    Some((seconds * 1000.0) as u64)
 }
 
 /// 获取系统闲置毫秒数：`GetLastInputInfo` 的最后输入 tick 与当前 tick 的差。
