@@ -508,6 +508,87 @@ pub(crate) fn log_to_test_file(_message: &str) {}
 
 pub(crate) use tray::refresh_pin_tray;
 
+/// 主窗口尺寸自适应：把配置里的默认尺寸夹到当前显示器工作区以内，并居中。
+///
+/// 背景：`tauri.conf.json` 只能写死一个默认尺寸（1600x800）。在小屏设备上
+/// （如 13" MacBook 缩放后逻辑分辨率仅 1470x956）该尺寸超出屏幕宽度，窗口
+/// 左右两侧会被裁掉且无法通过拖动完全看到，首次启动体验直接不可用。
+///
+/// 这里在 setup 阶段按真实工作区（`work_area()` 已扣除菜单栏 / Dock / 任务栏）
+/// 重新计算：宽高各留 `SCREEN_MARGIN_RATIO` 的边距上限，超出才收缩，小屏收缩、
+/// 大屏保持配置值不变；随后居中。多显示器 / 缩放比例变化均由工作区数据覆盖。
+///
+/// 失败（读不到显示器）时静默跳过，沿用配置尺寸，不阻断启动。
+fn fit_main_window_to_screen(app: &tauri::App) {
+    /// 窗口最多占用工作区的比例，留出边距避免贴边。
+    const SCREEN_MARGIN_RATIO: f64 = 0.9;
+    /// 收缩下限（逻辑像素）：低于此值布局会破形，宁可让窗口贴边也不再缩。
+    const MIN_W: f64 = 900.0;
+    const MIN_H: f64 = 600.0;
+
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    // current_monitor 在窗口尚未显示时可能为 None，回退到主显示器。
+    let monitor = match window.current_monitor() {
+        Ok(Some(m)) => Some(m),
+        _ => window.primary_monitor().ok().flatten(),
+    };
+    let Some(monitor) = monitor else {
+        return;
+    };
+
+    let scale = monitor.scale_factor();
+    let work_area = monitor.work_area();
+    // work_area 是物理像素，窗口尺寸用逻辑像素，需按缩放比换算。
+    let avail_w = work_area.size.width as f64 / scale;
+    let avail_h = work_area.size.height as f64 / scale;
+
+    let Ok(current) = window.outer_size() else {
+        return;
+    };
+    let cur_w = current.width as f64 / scale;
+    let cur_h = current.height as f64 / scale;
+
+    let target_w = cur_w.min(avail_w * SCREEN_MARGIN_RATIO).max(MIN_W.min(avail_w));
+    let target_h = cur_h.min(avail_h * SCREEN_MARGIN_RATIO).max(MIN_H.min(avail_h));
+
+    // 只在确实需要收缩时才改尺寸，避免大屏上无谓的 resize。
+    let shrink = target_w < cur_w - 1.0 || target_h < cur_h - 1.0;
+    if shrink {
+        let _ = window.set_size(tauri::LogicalSize::new(target_w, target_h));
+    }
+
+    // 这里不能用 `window.center()`：macOS 上 `set_size` 是异步派发到主队列执行的
+    // （tao `set_content_size_async`），`center()` 紧接着执行时读到的仍是收缩「前」
+    // 的旧尺寸，会把窗口按 1600 宽居中（x 为负），随后尺寸才缩小 —— 结果窗口整体
+    // 偏左、左侧超出屏幕。改为用「目标尺寸」自行计算居中位置并显式设置，
+    // 结果不依赖 set_size 何时真正生效。
+    let work_x = work_area.position.x as f64 / scale;
+    let work_y = work_area.position.y as f64 / scale;
+    let pos_x = work_x + (avail_w - target_w).max(0.0) / 2.0;
+    let pos_y = work_y + (avail_h - target_h).max(0.0) / 2.0;
+    let _ = window.set_position(tauri::LogicalPosition::new(pos_x, pos_y));
+
+    // 显示器相关的几何计算跨设备差异大（缩放比 / 多屏 / Dock 位置），
+    // 留一条日志便于排查「窗口尺寸不对」类问题。
+    log::info!(
+        "[window-fit] 工作区 {:.0}x{:.0} @({:.0},{:.0}) scale {:.2}，窗口 {:.0}x{:.0} -> {:.0}x{:.0}{}，定位 ({:.0},{:.0})",
+        avail_w,
+        avail_h,
+        work_x,
+        work_y,
+        scale,
+        cur_w,
+        cur_h,
+        target_w,
+        target_h,
+        if shrink { "，已收缩" } else { "，无需收缩" },
+        pos_x,
+        pos_y
+    );
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = crate::screenshot_universal::register_frame_image_protocol(
@@ -548,6 +629,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             crate::screenshot_shared::set_app_handle(app.handle().clone());
+            fit_main_window_to_screen(app);
             // dev 构建（控制台子系统）按 Ctrl+C 时默认会硬杀进程，残留托盘幽灵图标；
             // 安装控制台处理器改为优雅退出，让托盘图标在退出路径上被销毁。
             #[cfg(all(debug_assertions, windows))]

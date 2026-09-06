@@ -17,6 +17,9 @@
         "title": "open-toolbox",
         "width": 1600,
         "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
         "decorations": false
       }
     ],
