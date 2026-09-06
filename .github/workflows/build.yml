@@ -80,6 +80,28 @@ jobs:
         env:
           CARGO_BUILD_JOBS: 2
 
+      # 校验 macOS bundle 确实被签名。仅靠 tauri.conf.json 的 signingIdentity 不够：
+      # 链接器会给可执行文件打一个 linker-signed 的临时签名，看起来「有签名」，
+      # 但 .app 作为 bundle 还需要 _CodeSignature/CodeResources 资源封印。
+      # 缺失时 macOS 判定为「已损坏，应移到废纸篓」—— 这是死路，用户无法右键放行；
+      # 而签名正常时才会是「无法验证开发者」，用户可以放行。
+      # 两者对用户是天壤之别，且只在带 quarantine 下载后才暴露，本地测不出来，
+      # 故在 CI 强制校验，不合格直接失败。
+      - name: Verify macOS bundle signature
+        if: runner.os == 'macOS'
+        run: |
+          APP=src-tauri/target/release/bundle/macos/open-toolbox.app
+          codesign -dvv "$APP" 2>&1 | tee /tmp/sig.txt
+          if ! grep -q "Sealed Resources version" /tmp/sig.txt; then
+            echo "::error::bundle 缺少资源封印（_CodeSignature），下载后会被判定为「已损坏」"
+            exit 1
+          fi
+          if grep -q "linker-signed" /tmp/sig.txt; then
+            echo "::error::bundle 仅有链接器临时签名，未经 codesign 正式签名"
+            exit 1
+          fi
+          echo "✅ bundle 签名校验通过"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
