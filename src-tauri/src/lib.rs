@@ -510,11 +510,14 @@ pub(crate) use tray::refresh_pin_tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = crate::screenshot_shared::scroll_session::register_scroll_image_protocol(
-        crate::screenshot_universal::register_frame_image_protocol(
-            crate::screenshot_shared::pin::register_image_protocol(tauri::Builder::default()),
-        ),
-    )
+    let builder = crate::screenshot_universal::register_frame_image_protocol(
+        crate::screenshot_shared::pin::register_image_protocol(tauri::Builder::default()),
+    );
+    // 滚动截图会话（`scroll-image://` 协议）仅 Windows 实现，见
+    // `screenshot_shared/mod.rs` 的 `#[cfg(windows)] pub mod scroll_session;`。
+    #[cfg(windows)]
+    let builder = crate::screenshot_shared::scroll_session::register_scroll_image_protocol(builder);
+    let builder = builder
     // Initialize plugins
         // 日志：stdout + LogDir 下的 open-toolbox.log，5MB 大小轮转。
         // 依据 tauri-plugin-log 2.8：Builder::max_file_size(u128) 设置轮转上限；
@@ -592,7 +595,24 @@ pub fn run() {
     #[cfg(not(all(debug_assertions, target_os = "windows")))]
     let builder = attach_invoke_handler!(builder);
 
-    builder
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    let app = builder
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|_app_handle, _event| {
+        // macOS：主窗口关闭后是隐藏到托盘（见上面的 CloseRequested 分支），此时点击
+        // Dock 图标不会自动重建窗口，AppKit 只派发 applicationShouldHandleReopen。
+        // 不处理该事件的话，用户点 Dock 图标毫无反应（应用已激活、菜单栏已切换，
+        // 但窗口始终不出现）。这里复用托盘的唤起逻辑，与托盘点击行为保持一致。
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen {
+            has_visible_windows,
+            ..
+        } = _event
+        {
+            if !has_visible_windows {
+                crate::tray::show_main_window(_app_handle);
+            }
+        }
+    });
 }

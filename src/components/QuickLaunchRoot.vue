@@ -97,8 +97,13 @@ const handleKeydown = (e: KeyboardEvent) => {
 const rootRef = ref<HTMLElement | null>(null);
 const MIN_WINDOW_H = 160;
 const MAX_WINDOW_H = 520;
+// 新请求高度与上次相差小于此值时跳过 setSize：macOS 上 setSize 后的实际布局高度
+// 相对请求值会有几像素抖动，严格相等比较会让 ResizeObserver -> setSize -> 布局变化
+// -> ResizeObserver 永远兜圈子（曾在 macOS 打包实测中复现，表现为应用整体卡死无响应）。
+const RESIZE_TOLERANCE_PX = 2;
 let lastWindowHeight = 0;
 let resizeObserver: ResizeObserver | null = null;
+let pendingResizeFrame: number | null = null;
 let unlistenQuickLaunch: (() => void) | null = null;
 let cancelled = false;
 
@@ -109,12 +114,20 @@ let cancelled = false;
 const resizeToContent = () => {
   const el = rootRef.value;
   if (!el) return;
-  const height = Math.min(Math.max(el.offsetHeight, MIN_WINDOW_H), MAX_WINDOW_H);
-  if (height !== lastWindowHeight) {
-    lastWindowHeight = height;
-    void currentWindow.setSize(new LogicalSize(600, height));
-    void currentWindow.center();
-  }
+  const height = Math.round(Math.min(Math.max(el.offsetHeight, MIN_WINDOW_H), MAX_WINDOW_H));
+  if (Math.abs(height - lastWindowHeight) < RESIZE_TOLERANCE_PX) return;
+  lastWindowHeight = height;
+  void currentWindow.setSize(new LogicalSize(600, height));
+  void currentWindow.center();
+};
+
+/** 用 rAF 合并同一帧内的多次 ResizeObserver 回调，避免同步递归触发 setSize。 */
+const scheduleResizeToContent = () => {
+  if (pendingResizeFrame !== null) return;
+  pendingResizeFrame = requestAnimationFrame(() => {
+    pendingResizeFrame = null;
+    resizeToContent();
+  });
 };
 
 onMounted(async () => {
@@ -122,7 +135,7 @@ onMounted(async () => {
   applyThemeMode(store.themeMode, store.themeSkinId);
   // 内容变化（输入/推荐增减）→ 窗口高度自适应
   if (typeof ResizeObserver !== 'undefined') {
-    resizeObserver = new ResizeObserver(() => resizeToContent());
+    resizeObserver = new ResizeObserver(() => scheduleResizeToContent());
     if (rootRef.value) resizeObserver.observe(rootRef.value);
   }
   // 后端每次显示窗口都会 emit quick_launch_requested → 刷新剪贴板并聚焦
@@ -142,6 +155,10 @@ onMounted(async () => {
 onUnmounted(() => {
   cancelled = true;
   resizeObserver?.disconnect();
+  if (pendingResizeFrame !== null) {
+    cancelAnimationFrame(pendingResizeFrame);
+    pendingResizeFrame = null;
+  }
   unlistenQuickLaunch?.();
 });
 </script>
