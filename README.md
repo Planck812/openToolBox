@@ -107,11 +107,16 @@ Stop hunting for that random online JSON formatter. Hit `Alt+Space`, paste, done
 
 **macOS** — download the `.dmg` from [Releases](https://github.com/Planck812/openToolBox/releases/latest) and drag the app into Applications. **Apple Silicon only**; Intel Macs need a source build.
 
-> The app is **not signed with an Apple Developer ID**, so the first launch is blocked with *"cannot be opened because the developer cannot be verified"*. To get past it once:
+> The app is **not signed with an Apple Developer ID**, so the first launch is blocked with *"cannot be opened because the developer cannot be verified"*. Allow it once:
 >
-> **Right-click the app → Open → Open**. Double-clicking will not offer the bypass — you have to use the right-click menu. macOS remembers the choice, so this is a one-time step per version.
+> 1. **Double-click the app** — it gets blocked. This step is required: it puts the app on the blocked list that the next step reads from.
+> 2. Open **System Settings → Privacy & Security**, scroll down to **Security**, and click **Open Anyway** next to the notice about open-toolbox. Confirm in the dialog that follows.
 >
-> Alternatively: **System Settings → Privacy & Security**, scroll down, and click **Open Anyway** next to the blocked-app notice.
+> macOS remembers the decision — this is a one-time step per version.
+>
+> Right-clicking the app and choosing **Open** sometimes works too, but on recent macOS versions it may silently fail once the app has already been denied. If you are stuck, use the System Settings route above; it is the reliable one.
+>
+> You do **not** need to disable Gatekeeper (`spctl --master-disable`) or allow apps from anywhere. Please don't — it lowers your machine's security far beyond what running this app requires.
 
 Two more macOS notes:
 
