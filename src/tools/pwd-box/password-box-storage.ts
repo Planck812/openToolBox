@@ -2,8 +2,21 @@ import type { PasswordBoxItem } from './password-box-model';
 import { pwdboxLoad, pwdboxSave } from '@/lib/ipc/pwdbox';
 import i18n from '@/i18n';
 
+/**
+ * 密码库文档格式。
+ *
+ * - v1：整个文档由后端 AES-GCM 加密后落盘。
+ * - v2（当前）：文档本身明文落盘，仅每条记录的 `password` 字段单独加密。
+ *   如此列出条目无需主密钥，打开密码夹不会触发系统凭据库授权
+ *   （macOS 上即不弹钥匙串对话框）。
+ *
+ * 后端读取时会把 v1 就地迁移为 v2，故此处读到的应始终是 v2；
+ * 仍接受 v1 以兼容后端迁移失败时的降级读取。
+ */
+const DOCUMENT_VERSION = 2;
+
 type PasswordBoxDocument = {
-  version: 1;
+  version: number;
   items: PasswordBoxItem[];
 };
 
@@ -17,12 +30,15 @@ const assertDocumentShape = (value: unknown): PasswordBoxDocument => {
   }
 
   const document = value as Partial<PasswordBoxDocument>;
-  if (document.version !== 1 || !Array.isArray(document.items)) {
+  // 同时接受 v1 与 v2：后端负责把 v1 迁移为 v2，这里不因版本号新旧而拒绝读取，
+  // 否则一次格式升级就会让既有数据「解析失败」而不可用。
+  const version = document.version;
+  if ((version !== 1 && version !== 2) || !Array.isArray(document.items)) {
     throw new Error(i18n.global.t('tools.pwd_box.error_file_parse_failed'));
   }
 
   return {
-    version: 1,
+    version,
     items: document.items as PasswordBoxItem[],
   };
 };
@@ -66,7 +82,7 @@ export const loadPasswordBoxItems = async (): Promise<PasswordBoxItem[]> => {
  */
 export const savePasswordBoxItems = async (items: PasswordBoxItem[]): Promise<void> => {
   const document: PasswordBoxDocument = {
-    version: 1,
+    version: DOCUMENT_VERSION,
     items: cloneItems(items),
   };
 

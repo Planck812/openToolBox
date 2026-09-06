@@ -51,6 +51,14 @@ trait MasterKeyStore {
     fn get(&self) -> Result<Option<Vec<u8>>, String>;
     /// 写入主密钥。
     fn set(&self, key: &[u8]) -> Result<(), String>;
+    /// 进程内缓存标识；返回 `None` 表示不参与缓存。
+    ///
+    /// 必须按凭据身份区分：密码夹与 curl 历史持有**各自独立**的主密钥
+    /// （见 `CURL_USER` 注释「避免一损俱损」），共用一个缓存会把一方的密钥
+    /// 用到另一方的数据上，造成解密失败甚至覆盖损坏。
+    fn cache_identity(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 /// 生产实现：主密钥存入系统凭据库（keyring）。`service`/`user` 由调用方指定，
@@ -89,11 +97,43 @@ impl MasterKeyStore for KeyringStore {
             .set_password(&encode_hex(key))
             .map_err(|e| e.to_string())
     }
+
+    fn cache_identity(&self) -> Option<&'static str> {
+        Some(self.user)
+    }
 }
 
 /// 把密钥不可用的底层错误统一映射为带稳定标记的 `AppError`，前端据此提示不支持加密存储。
 fn unsupported_storage(cause: String) -> AppError {
     AppError::Message(format!("{UNSUPPORTED_STORAGE_MARK}: {cause}"))
+}
+
+/// 进程内主密钥缓存，**按凭据身份分桶**，避免同一次运行中反复访问系统凭据库。
+///
+/// macOS 上每次读取 Keychain 都可能弹出授权对话框（应用签名未被条目 ACL 记住时），
+/// 缓存后一次运行至多触发一次。缓存只存活在进程内存中，退出即消失。
+static MASTER_KEY_CACHE: Mutex<Option<std::collections::HashMap<&'static str, Vec<u8>>>> =
+    Mutex::new(None);
+
+/// 取主密钥（优先命中进程内缓存；`cache_identity()` 为 None 的 store 不缓存）。
+fn cached_key(store: &dyn MasterKeyStore) -> Result<Vec<u8>, AppError> {
+    let identity = store.cache_identity();
+    if let Some(id) = identity {
+        if let Ok(guard) = MASTER_KEY_CACHE.lock() {
+            if let Some(key) = guard.as_ref().and_then(|m| m.get(id)) {
+                return Ok(key.clone());
+            }
+        }
+    }
+    let key = get_or_create_key(store)?;
+    if let Some(id) = identity {
+        if let Ok(mut guard) = MASTER_KEY_CACHE.lock() {
+            guard
+                .get_or_insert_with(std::collections::HashMap::new)
+                .insert(id, key.clone());
+        }
+    }
+    Ok(key)
 }
 
 /// 读取已存主密钥；无则生成一个并写回（用于保存与旧明文迁移路径）。
@@ -189,7 +229,48 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), AppError> {
     std::fs::rename(&tmp_path, path).map_err(AppError::Io)
 }
 
-/// 读取密码库文件（含迁移）：返回 JSON 字符串；文件不存在返回 `Ok(None)`。
+/// 读取文档的 `version` 字段（非法/缺失返回 None）。
+fn document_version(json: &str) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(json)
+        .ok()?
+        .get("version")?
+        .as_u64()
+}
+
+/// 把 v1 文档（整体明文/整体密文解出的明文）迁移为 v2：
+/// 文档本身明文落盘，仅每条记录的 `password` 字段单独加密。
+///
+/// 这样列出条目无需主密钥，打开密码夹不再触发系统凭据库授权；只有查看/修改
+/// 单条密码时才取密钥（此时本就需要身份验证）。
+///
+/// 代价：`site` / `username` / `note` 变为明文落盘。加密边界与产品既有的验证
+/// 边界一致（仅 `password` 需验证才可见），但备注不再受静态加密保护。
+fn migrate_document_to_v2(key: &[u8], json: &str) -> Result<String, AppError> {
+    let mut doc: serde_json::Value = serde_json::from_str(json)
+        .map_err(|e| AppError::Message(format!("密码库 JSON 解析失败：{e}")))?;
+
+    if let Some(items) = doc.get_mut("items").and_then(|v| v.as_array_mut()) {
+        for item in items.iter_mut() {
+            let Some(password) = item.get("password").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            // 已是密文则跳过，保证迁移可重入（中途失败重跑不会二次加密）。
+            if password.is_empty() || password.starts_with(MAGIC_PREFIX) {
+                continue;
+            }
+            let cipher = encrypt(key, password.as_bytes())?;
+            item["password"] = serde_json::Value::String(cipher);
+        }
+    }
+    doc["version"] = serde_json::Value::from(2u64);
+    serde_json::to_string(&doc)
+        .map_err(|e| AppError::Message(format!("密码库 JSON 序列化失败：{e}")))
+}
+
+/// 读取整文件加密的数据文件（含旧明文迁移）：返回 JSON 字符串；不存在返回 `Ok(None)`。
+///
+/// 仍服务 curl 请求历史等「整体加密」场景。密码夹已改用 v2 逐字段加密，
+/// 见 `load_pwdbox_document`。
 fn load_from(store: &dyn MasterKeyStore, path: &Path) -> Result<Option<String>, AppError> {
     let content = match std::fs::read_to_string(path) {
         Ok(content) => content,
@@ -203,9 +284,7 @@ fn load_from(store: &dyn MasterKeyStore, path: &Path) -> Result<Option<String>, 
         let key = store
             .get()
             .map_err(unsupported_storage)?
-            .ok_or_else(|| {
-                unsupported_storage("主密钥缺失，无法解密密码库".to_string())
-            })?;
+            .ok_or_else(|| unsupported_storage("主密钥缺失，无法解密数据文件".to_string()))?;
         let plaintext = decrypt(&key, &content)?;
         let json = String::from_utf8(plaintext).map_err(AppError::Utf8)?;
         return Ok(Some(json));
@@ -220,15 +299,106 @@ fn load_from(store: &dyn MasterKeyStore, path: &Path) -> Result<Option<String>, 
     }
 
     Err(AppError::Message(
-        "密码库文件已损坏（既非密文也非合法 JSON）".to_string(),
+        "数据文件已损坏（既非密文也非合法 JSON）".to_string(),
     ))
 }
 
-/// 加密并原子写回密码库文件。
+/// 加密并原子写回整文件加密的数据文件（curl 请求历史等仍走此路径）。
 fn save_to(store: &dyn MasterKeyStore, path: &Path, data: &str) -> Result<(), AppError> {
     let key = get_or_create_key(store)?;
     let encrypted = encrypt(&key, data.as_bytes())?;
     atomic_write(path, encrypted.as_bytes())
+}
+
+/// 读取密码夹文档（v2：文档明文 + 密码字段单独加密），必要时就地迁移。
+///
+/// v2 直读路径**完全不访问系统凭据库** —— 这正是打开密码夹不再弹出钥匙串授权框
+/// 的原因。仅旧格式迁移时需要一次主密钥。
+fn load_pwdbox_document(
+    store: &dyn MasterKeyStore,
+    path: &Path,
+) -> Result<Option<String>, AppError> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(AppError::Io(e)),
+    };
+
+    if content.starts_with(MAGIC_PREFIX) {
+        // 旧格式（整文件密文）→ 解密后迁移为 v2。不自动生成新密钥，
+        // 避免密钥缺失时生成新密钥导致数据永久不可读。
+        let key = store
+            .get()
+            .map_err(unsupported_storage)?
+            .ok_or_else(|| unsupported_storage("主密钥缺失，无法解密密码库".to_string()))?;
+        let plaintext = decrypt(&key, &content)?;
+        let json = String::from_utf8(plaintext).map_err(AppError::Utf8)?;
+        let migrated = migrate_document_to_v2(&key, &json)?;
+        atomic_write(path, migrated.as_bytes())?;
+        return Ok(Some(migrated));
+    }
+
+    if is_plaintext_json(&content) {
+        if document_version(&content) == Some(2) {
+            return Ok(Some(content));
+        }
+        // v1 旧明文 → 迁移为 v2。
+        let key = cached_key(store)?;
+        let migrated = migrate_document_to_v2(&key, &content)?;
+        atomic_write(path, migrated.as_bytes())?;
+        return Ok(Some(migrated));
+    }
+
+    Err(AppError::Message(
+        "密码库文件已损坏（既非密文也非合法 JSON）".to_string(),
+    ))
+}
+
+/// 原子写回密码夹文档（v2：文档明文落盘，密码字段应已是密文）。
+///
+/// 前端持有的 `password` 始终为密文，故正常保存路径**不需要主密钥**，
+/// 改站点名/用户名/备注都不会触发凭据库授权。
+///
+/// 兜底：发现某条 `password` 不是密文（前端漏加密）时就地加密后再落盘 ——
+/// 宁可多取一次密钥，也绝不把明文密码写入文件。
+fn save_pwdbox_document(
+    store: &dyn MasterKeyStore,
+    path: &Path,
+    data: &str,
+) -> Result<(), AppError> {
+    let mut doc: serde_json::Value = serde_json::from_str(data)
+        .map_err(|e| AppError::Message(format!("密码库 JSON 解析失败：{e}")))?;
+
+    let needs_key = doc
+        .get("items")
+        .and_then(|v| v.as_array())
+        .is_some_and(|items| {
+            items.iter().any(|item| {
+                item.get("password")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|p| !p.is_empty() && !p.starts_with(MAGIC_PREFIX))
+            })
+        });
+
+    if needs_key {
+        let key = cached_key(store)?;
+        if let Some(items) = doc.get_mut("items").and_then(|v| v.as_array_mut()) {
+            for item in items.iter_mut() {
+                let Some(password) = item.get("password").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                if password.is_empty() || password.starts_with(MAGIC_PREFIX) {
+                    continue;
+                }
+                let cipher = encrypt(&key, password.as_bytes())?;
+                item["password"] = serde_json::Value::String(cipher);
+            }
+        }
+    }
+    doc["version"] = serde_json::Value::from(2u64);
+    let out = serde_json::to_string(&doc)
+        .map_err(|e| AppError::Message(format!("密码库 JSON 序列化失败：{e}")))?;
+    atomic_write(path, out.as_bytes())
 }
 
 /// 解析密码库文件在用户目录下的绝对路径（`~/.smtPwdBox.json`）。
@@ -245,7 +415,7 @@ fn pwdbox_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, App
 pub fn pwdbox_load<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, AppError> {
     let path = pwdbox_path(&app)?;
     let store = KeyringStore { service: SERVICE, user: PWDBOX_USER };
-    load_from(&store, &path)
+    load_pwdbox_document(&store, &path)
 }
 
 /// 加密并落盘密码库 JSON 字符串。
@@ -254,7 +424,57 @@ pub fn pwdbox_load<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, AppE
 pub fn pwdbox_save<R: Runtime>(app: AppHandle<R>, data: String) -> Result<(), AppError> {
     let path = pwdbox_path(&app)?;
     let store = KeyringStore { service: SERVICE, user: PWDBOX_USER };
-    save_to(&store, &path, &data)
+    save_pwdbox_document(&store, &path, &data)
+}
+
+/// 预热主密钥：把密钥读入进程缓存，使后续查看/复制无需再访问系统凭据库。
+///
+/// 供密码夹工具页挂载时调用。系统凭据库的授权交互（macOS 上首次访问会弹出钥匙串
+/// 授权框）因此发生在**进入工具页**这一步，而不是打断「查看密码」的操作过程 ——
+/// 把解锁动作放在入口比夹在操作中间更符合直觉。
+///
+/// 失败不阻断：列出条目本就不需要主密钥（v2 格式），预热失败只是让后续查看密码时
+/// 再走一次取密钥流程并在那里报错，不影响浏览已有条目。
+#[tauri::command]
+#[specta::specta]
+pub fn pwdbox_prepare_key() -> bool {
+    let store = KeyringStore { service: SERVICE, user: PWDBOX_USER };
+    match cached_key(&store) {
+        Ok(_) => true,
+        Err(error) => {
+            log::warn!("[pwdbox] 预热主密钥失败（不影响浏览条目）：{error}");
+            false
+        }
+    }
+}
+
+/// 解密单条密码字段（查看/复制时调用；调用方须先通过 `pwdbox_authenticate`）。
+#[tauri::command]
+#[specta::specta]
+pub fn pwdbox_decrypt_field(cipher: String) -> Result<String, AppError> {
+    if cipher.is_empty() {
+        return Ok(String::new());
+    }
+    // 兼容尚未迁移的明文（历史数据或手工编辑），原样返回而非报错。
+    if !cipher.starts_with(MAGIC_PREFIX) {
+        return Ok(cipher);
+    }
+    let store = KeyringStore { service: SERVICE, user: PWDBOX_USER };
+    let key = cached_key(&store)?;
+    let plain = decrypt(&key, &cipher)?;
+    String::from_utf8(plain).map_err(AppError::Utf8)
+}
+
+/// 加密单条密码字段（新增/修改密码时调用）。
+#[tauri::command]
+#[specta::specta]
+pub fn pwdbox_encrypt_field(plain: String) -> Result<String, AppError> {
+    if plain.is_empty() {
+        return Ok(String::new());
+    }
+    let store = KeyringStore { service: SERVICE, user: PWDBOX_USER };
+    let key = cached_key(&store)?;
+    encrypt(&key, plain.as_bytes())
 }
 
 /// 密码夹免密查看/复制有效期：10 分钟。
@@ -366,7 +586,88 @@ fn verify_user_consent(
     }
 }
 
-#[cfg(not(windows))]
+/// macOS：经 LocalAuthentication 发起本机身份验证（Touch ID / Apple Watch / 登录密码）。
+///
+/// 策略取 `LAPolicyDeviceOwnerAuthentication`(2) 而非仅生物识别：生物识别不可用时
+/// 自动回退到登录密码，语义与 Windows 侧「Windows Hello 或 PIN/开机密码」一致。
+///
+/// **失败一律拒绝访问（fail closed）**：验证不通过、用户取消、系统未配置验证能力
+/// 时都不放行。此前本函数在非 Windows 平台无条件返回 `Ok(true)`，导致 macOS 上
+/// 查看/复制密码完全跳过验证 —— 落盘加密虽正常，但任何拿到已解锁设备的人都能
+/// 直接读取全部密码，而 UI 仍显示着「需要验证身份」的流程。
+///
+/// 实测：adhoc 签名（本项目当前的产物签名形式）下 LAContext 可正常工作，
+/// 无需开发者证书或额外 entitlement。
+#[cfg(target_os = "macos")]
+fn verify_user_consent(message: &str) -> Result<bool, AppError> {
+    use block2::RcBlock;
+    use objc2::rc::Retained;
+    use objc2::runtime::{AnyClass, AnyObject, Bool};
+    use objc2::msg_send;
+    use objc2_foundation::NSString;
+    use std::sync::mpsc;
+
+    /// `LAPolicyDeviceOwnerAuthentication`：生物识别优先，不可用时回退登录密码。
+    const POLICY_DEVICE_OWNER_AUTH: isize = 2;
+
+    let Some(cls) = AnyClass::get(c"LAContext") else {
+        return Err(AppError::Message(
+            "系统未提供身份验证能力（LocalAuthentication 不可用）".to_string(),
+        ));
+    };
+
+    // SAFETY: 标准的 alloc/init 构造，随后仅调用 LAContext 的公开实例方法。
+    let verified = unsafe {
+        let ctx: *mut AnyObject = msg_send![cls, alloc];
+        let ctx: *mut AnyObject = msg_send![ctx, init];
+        if ctx.is_null() {
+            return Err(AppError::Message("创建身份验证上下文失败".to_string()));
+        }
+        // 交由 Retained 托管，提前返回时也能正确释放。
+        let ctx: Retained<AnyObject> = Retained::from_raw(ctx)
+            .ok_or_else(|| AppError::Message("创建身份验证上下文失败".to_string()))?;
+
+        // 先探测能力：系统未设登录密码/未配置生物识别时给出可操作的错误，
+        // 而不是弹一个必然失败的对话框。
+        let mut probe_err: *mut AnyObject = std::ptr::null_mut();
+        let can: Bool =
+            msg_send![&*ctx, canEvaluatePolicy: POLICY_DEVICE_OWNER_AUTH, error: &mut probe_err];
+        if !can.as_bool() {
+            return Err(AppError::Message(
+                "当前系统未配置登录密码或 Touch ID，无法验证身份".to_string(),
+            ));
+        }
+
+        // evaluatePolicy 是异步 API（结果经 completion block 回调），这里用 channel
+        // 阻塞等待。调用方已在 `spawn_blocking` 中执行，阻塞不会占用异步运行时线程。
+        let (tx, rx) = mpsc::channel::<bool>();
+        let block = RcBlock::new(move |success: Bool, _error: *mut AnyObject| {
+            // 发送失败说明接收端已超时退出，忽略即可。
+            let _ = tx.send(success.as_bool());
+        });
+        let reason = NSString::from_str(message);
+        let _: () = msg_send![
+            &*ctx,
+            evaluatePolicy: POLICY_DEVICE_OWNER_AUTH,
+            localizedReason: &*reason,
+            reply: &*block,
+        ];
+
+        // 上限兜底：正常情况下用户完成或取消都会立即回调；此处防止对话框异常
+        // 未回调时永久卡死调用线程。
+        rx.recv_timeout(std::time::Duration::from_secs(120))
+            .unwrap_or(false)
+    };
+
+    Ok(verified)
+}
+
+/// 其余平台（Linux）：暂无等价的本机身份验证实现。
+///
+/// 注意：此处沿用历史行为直接放行，等于**查看/复制密码不需要验证**。
+/// Linux 的对应能力（如 polkit）尚未接入，属已知缺口；落盘加密与主密钥仍由
+/// Secret Service 保护，但缺少「查看前二次确认」这一层。
+#[cfg(all(not(windows), not(target_os = "macos")))]
 fn verify_user_consent(_message: &str) -> Result<bool, AppError> {
     Ok(true)
 }
@@ -383,7 +684,18 @@ pub async fn pwdbox_authenticate<R: Runtime>(
         return Ok(true);
     }
 
-    let message = prompt.unwrap_or_else(|| "请输入电脑开机密码或通过 Windows Hello 验证身份以访问密码".to_string());
+    // 默认提示按平台措辞：验证方式不同，文案照搬会让另一平台的用户困惑。
+    // macOS 上该文案还会直接显示在系统验证对话框里（localizedReason）。
+    let message = prompt.unwrap_or_else(|| {
+        #[cfg(target_os = "macos")]
+        {
+            "验证身份以访问密码".to_string()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            "请输入电脑开机密码或通过 Windows Hello 验证身份以访问密码".to_string()
+        }
+    });
 
     #[cfg(windows)]
     let raw_hwnd: Option<isize> = {
@@ -531,17 +843,40 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(PWDBOX_FILE_NAME);
         let store = MemoryStore::new();
-        let data = r#"{"version":1,"items":[{"id":"a"}]}"#;
+        // v2：文档本身明文，仅 password 字段单独加密。
+        let data = r#"{"version":2,"items":[{"id":"a","password":""}]}"#;
 
-        save_to(&store, &path, data).unwrap();
+        save_pwdbox_document(&store, &path, data).unwrap();
 
-        // 落盘的是密文（带魔法前缀），不是明文 JSON。
+        // 落盘是明文 JSON（列出条目才不需要主密钥），且标记为 v2。
         let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(raw.starts_with(MAGIC_PREFIX));
-        assert!(!is_plaintext_json(&raw));
+        assert!(is_plaintext_json(&raw));
+        assert_eq!(document_version(&raw), Some(2));
 
-        // 同一把密钥可读回原始数据。
-        assert_eq!(load_from(&store, &path).unwrap().as_deref(), Some(data));
+        // 再次读取无需密钥即可拿回数据。
+        let loaded = load_pwdbox_document(&store, &path).unwrap().unwrap();
+        assert_eq!(document_version(&loaded), Some(2));
+    }
+
+    /// 安全不变量：明文密码绝不落盘。前端漏调加密时，save_to 必须兜底加密。
+    #[test]
+    fn save_never_writes_plaintext_password() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(PWDBOX_FILE_NAME);
+        let store = MemoryStore::new();
+        let data = r#"{"version":2,"items":[{"id":"a","password":"hunter2"}]}"#;
+
+        save_pwdbox_document(&store, &path, data).unwrap();
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("hunter2"), "明文密码被写入磁盘：{raw}");
+        let doc: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        let stored = doc["items"][0]["password"].as_str().unwrap();
+        assert!(stored.starts_with(MAGIC_PREFIX));
+
+        // 密文可用同一把密钥还原。
+        let key = store.get().unwrap().unwrap();
+        assert_eq!(decrypt(&key, stored).unwrap(), b"hunter2");
     }
 
     #[test]
@@ -560,14 +895,15 @@ mod tests {
         let legacy = r#"{"version":1,"items":[]}"#;
         std::fs::write(&path, legacy).unwrap();
 
-        // 首次加载返回明文内容，并立即以密文重写。
-        assert_eq!(load_from(&store, &path).unwrap().as_deref(), Some(legacy));
+        // 首次加载迁移到 v2 并就地重写。
+        let first = load_pwdbox_document(&store, &path).unwrap().unwrap();
+        assert_eq!(document_version(&first), Some(2));
         let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(raw.starts_with(MAGIC_PREFIX));
-        assert!(!is_plaintext_json(&raw));
+        assert!(is_plaintext_json(&raw));
+        assert_eq!(document_version(&raw), Some(2));
 
-        // 迁移后再次加载走密文解密路径，数据一致。
-        assert_eq!(load_from(&store, &path).unwrap().as_deref(), Some(legacy));
+        // 再次加载走 v2 直读路径，结果一致。
+        assert_eq!(load_pwdbox_document(&store, &path).unwrap().unwrap(), first);
     }
 
     #[test]

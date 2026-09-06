@@ -5,6 +5,12 @@ fn main() {
     // （Windows `GetLastInputInfo` / macOS `CGEventSourceSecondsSinceLastEventType`），
     // 其余配置、视频、弹窗窗口逻辑都是跨平台的。
     // Linux 暂无空闲检测实现，故不纳入；将来补上只需在此处加一个平台。
+    // 密码夹身份验证用到 LocalAuthentication（LAContext）。该框架不会被默认链接，
+    // 不显式声明时运行期取不到 LAContext 类，验证会按 fail-closed 直接拒绝 ——
+    // 表现为密码夹在 macOS 上完全无法打开，且编译期无任何提示。
+    #[cfg(target_os = "macos")]
+    println!("cargo:rustc-link-lib=framework=LocalAuthentication");
+
     println!("cargo::rustc-check-cfg=cfg(sedentary_supported)");
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if matches!(target_os.as_str(), "windows" | "macos") {

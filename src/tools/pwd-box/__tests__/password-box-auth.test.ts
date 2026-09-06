@@ -13,6 +13,11 @@ vi.mock('@/lib/ipc/pwdbox', () => ({
   pwdboxAuthLock: vi.fn(),
   pwdboxLoad: vi.fn(),
   pwdboxSave: vi.fn(),
+  // v2 存储：password 字段是密文，查看/复制时经此解密。
+  // 测试夹具直接存明文，故按恒等映射 mock。
+  pwdboxDecryptField: vi.fn(),
+  pwdboxEncryptField: vi.fn(),
+  pwdboxPrepareKey: vi.fn(),
 }));
 
 vi.mock('@/lib/clipboard', () => ({
@@ -43,6 +48,10 @@ describe('PasswordBoxTool Authentication', () => {
     vi.spyOn(storage, 'loadPasswordBoxItems').mockResolvedValue(testItems);
     vi.mocked(pwdboxIpc.pwdboxAuthCheck).mockResolvedValue(false);
     vi.mocked(pwdboxIpc.pwdboxAuthLock).mockResolvedValue();
+    // 测试夹具中 password 存的是明文，解密/加密按恒等处理。
+    vi.mocked(pwdboxIpc.pwdboxDecryptField).mockImplementation(async (v: string) => v);
+    vi.mocked(pwdboxIpc.pwdboxEncryptField).mockImplementation(async (v: string) => v);
+    vi.mocked(pwdboxIpc.pwdboxPrepareKey).mockResolvedValue(true);
     vi.mocked(clipboard.copyText).mockResolvedValue(true);
   });
 
@@ -101,8 +110,13 @@ describe('PasswordBoxTool Authentication', () => {
 
     expect(pwdboxIpc.pwdboxAuthenticate).toHaveBeenCalledWith('tools.pwd_box.auth_prompt_view');
 
-    const display = wrapper.get('[data-testid="pwd-box-password-display"]');
-    expect(display.text()).toBe('SuperSecretPassword123!');
+    // v2：揭示密码需先验证再向后端解密，比旧实现多一次异步跳转，故用 waitFor
+    // 等待最终状态，而非依赖固定的微任务轮数。
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="pwd-box-password-display"]').text()).toBe(
+        'SuperSecretPassword123!',
+      );
+    });
     expect(wrapper.find('[data-testid="pwd-box-lock-button"]').exists()).toBe(true);
   });
 
@@ -140,8 +154,10 @@ describe('PasswordBoxTool Authentication', () => {
     expect(clipboard.copyText).toHaveBeenCalledWith('SuperSecretPassword123!');
 
     const appStore = useAppStore();
-    expect(appStore.showToast).toHaveBeenCalledWith('tools.pwd_box.copy_success', {
-      type: 'success',
+    await vi.waitFor(() => {
+      expect(appStore.showToast).toHaveBeenCalledWith('tools.pwd_box.copy_success', {
+        type: 'success',
+      });
     });
   });
 
@@ -156,11 +172,13 @@ describe('PasswordBoxTool Authentication', () => {
       expect(wrapper.find('[data-testid="pwd-box-toggle-visibility"]').exists()).toBe(true);
     });
 
-    // 先验证解锁查看明文
+    // 先验证解锁查看明文（v2 需等待异步解密完成）
     await wrapper.get('[data-testid="pwd-box-toggle-visibility"]').trigger('click');
-    expect(wrapper.get('[data-testid="pwd-box-password-display"]').text()).toBe(
-      'SuperSecretPassword123!',
-    );
+    await vi.waitFor(() => {
+      expect(wrapper.get('[data-testid="pwd-box-password-display"]').text()).toBe(
+        'SuperSecretPassword123!',
+      );
+    });
     expect(wrapper.find('[data-testid="pwd-box-lock-button"]').exists()).toBe(true);
 
     // 点击锁定

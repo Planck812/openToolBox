@@ -14,7 +14,14 @@ import {
 } from 'lucide-vue-next';
 import { copyText } from '@/lib/clipboard';
 import { askConfirm } from '@/lib/confirm';
-import { pwdboxAuthenticate, pwdboxAuthCheck, pwdboxAuthLock } from '@/lib/ipc/pwdbox';
+import {
+  pwdboxAuthenticate,
+  pwdboxAuthCheck,
+  pwdboxAuthLock,
+  pwdboxDecryptField,
+  pwdboxEncryptField,
+  pwdboxPrepareKey,
+} from '@/lib/ipc/pwdbox';
 import { useAppStore } from '@/store/app';
 import { useResizablePanel } from '@/lib/use-resizable-panel';
 import {
@@ -42,6 +49,17 @@ const items = ref<PasswordBoxItem[]>([]);
 const searchKeyword = ref('');
 const selectedItemId = ref<string | null>(null);
 const revealedIds = ref<string[]>([]);
+/**
+ * 已解密的密码明文，按记录 id 缓存。
+ *
+ * v2 存储格式下 `item.password` 始终是密文，明文只在通过身份验证后按需解密，
+ * 且仅驻留内存 —— 锁定/会话过期时随 `revealedIds` 一并清空，不落盘。
+ */
+const plainPasswords = ref<Record<string, string>>({});
+
+/** 取用于展示的密码：已揭示则为明文，否则固定掩码。 */
+const displayPassword = (item: { id: string; password: string }): string =>
+  isPasswordVisible(item.id) ? (plainPasswords.value[item.id] ?? '') : maskPassword(item.password);
 const loaded = ref(false);
 const isUnlocked = ref(false);
 const authenticating = ref(false);
@@ -86,6 +104,7 @@ const resetAuthSessionTimer = () => {
     () => {
       isUnlocked.value = false;
       revealedIds.value = [];
+      plainPasswords.value = {};
     },
     10 * 60 * 1000,
   );
@@ -124,6 +143,7 @@ const lockSession = async () => {
   }
   isUnlocked.value = false;
   revealedIds.value = [];
+  plainPasswords.value = {};
   if (authExpiryTimer) {
     clearTimeout(authExpiryTimer);
     authExpiryTimer = null;
@@ -171,12 +191,31 @@ const isPasswordVisible = (itemId: string) => revealedIds.value.includes(itemId)
 const toggleVisibility = async (itemId: string) => {
   if (isPasswordVisible(itemId)) {
     revealedIds.value = revealedIds.value.filter((id) => id !== itemId);
+    // 收起时同步丢弃明文，避免解密结果长期驻留内存。
+    const { [itemId]: _dropped, ...rest } = plainPasswords.value;
+    plainPasswords.value = rest;
     return;
   }
 
   const ok = await ensureAuthenticated(t('tools.pwd_box.auth_prompt_view'));
-  if (ok) {
+  if (!ok) {
+    return;
+  }
+  const target = items.value.find((item) => item.id === itemId);
+  if (!target) {
+    return;
+  }
+  try {
+    // v2：存储的是密文，验证通过后才向后端换取明文。
+    plainPasswords.value = {
+      ...plainPasswords.value,
+      [itemId]: await pwdboxDecryptField(target.password),
+    };
     revealedIds.value = [...revealedIds.value, itemId];
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message ? error.message : t('tools.pwd_box.auth_failed');
+    appStore.showToast(message, { type: 'error' });
   }
 };
 
@@ -201,9 +240,31 @@ const patchSelectedItem = async (
     return;
   }
 
+  const nextPatch = { ...patch };
+  // v2：落盘的 password 必须是密文。这里在写入前加密，明文只在内存中用于展示。
+  // （后端 save 也有兜底加密，但那会多取一次主密钥；在此加密可避免。）
+  if (typeof patch.password === 'string') {
+    const plain = patch.password;
+    try {
+      nextPatch.password = await pwdboxEncryptField(plain);
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : t('tools.pwd_box.error_unsupported_storage');
+      appStore.showToast(message, { type: 'error' });
+      return;
+    }
+    // 正在编辑的记录保持可见明文，避免输入框内容被密文覆盖。
+    plainPasswords.value = { ...plainPasswords.value, [current.id]: plain };
+    if (!revealedIds.value.includes(current.id)) {
+      revealedIds.value = [...revealedIds.value, current.id];
+    }
+  }
+
   const timestamp = new Date().toISOString();
   items.value = items.value.map((item) =>
-    item.id === current.id ? updatePasswordBoxItem(item, patch, timestamp) : item,
+    item.id === current.id ? updatePasswordBoxItem(item, nextPatch, timestamp) : item,
   );
   await persistItems();
 };
@@ -218,7 +279,18 @@ const copyPassword = async () => {
     return;
   }
 
-  const ok = await copyText(selectedItem.value.password);
+  let plain: string;
+  try {
+    // 复制的必须是明文，而 v2 存储的是密文，故此处解密（已通过身份验证）。
+    plain = await pwdboxDecryptField(selectedItem.value.password);
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message ? error.message : t('tools.pwd_box.copy_failed');
+    appStore.showToast(message, { type: 'error' });
+    return;
+  }
+
+  const ok = await copyText(plain);
   appStore.showToast(t(ok ? 'tools.pwd_box.copy_success' : 'tools.pwd_box.copy_failed'), {
     type: ok ? 'success' : 'error',
   });
@@ -325,6 +397,8 @@ const deleteItem = async (itemId: string) => {
 
   items.value = deletePasswordBoxItem(items.value, itemId);
   revealedIds.value = revealedIds.value.filter((id) => id !== itemId);
+  const { [itemId]: _removed, ...restPlain } = plainPasswords.value;
+  plainPasswords.value = restPlain;
   if (selectedItemId.value === itemId) {
     selectedItemId.value = null;
   }
@@ -375,6 +449,10 @@ onMounted(async () => {
     loaded.value = true;
     ensureSelectedItem();
   }
+
+  // 预热主密钥：把系统凭据库的授权交互放在「进入工具页」这一步，避免它夹在
+  // 「查看密码」的操作中间打断用户。失败不阻断 —— 列出条目本就不需要主密钥。
+  void pwdboxPrepareKey().catch(() => false);
 });
 
 onUnmounted(() => {
@@ -481,7 +559,7 @@ onUnmounted(() => {
                     {{ item.username || t('tools.pwd_box.username_placeholder') }}
                   </div>
                   <div class="mt-2 text-xs text-muted-foreground">
-                    {{ isPasswordVisible(item.id) ? item.password : maskPassword(item.password) }}
+                    {{ displayPassword(item) }}
                   </div>
                   <p class="mt-2 line-clamp-2 text-xs text-muted-foreground">
                     {{ item.note || t('tools.pwd_box.note_placeholder') }}
@@ -582,14 +660,14 @@ onUnmounted(() => {
             <div data-testid="pwd-box-password-display" class="text-sm font-medium text-foreground">
               {{
                 isPasswordVisible(selectedItem.id)
-                  ? selectedItem.password
+                  ? (plainPasswords[selectedItem.id] ?? '')
                   : maskPassword(selectedItem.password)
               }}
             </div>
 
             <input
               data-testid="pwd-box-password-input"
-              :value="selectedItem.password"
+              :value="plainPasswords[selectedItem.id] ?? ''"
               :type="isPasswordVisible(selectedItem.id) ? 'text' : 'password'"
               class="rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
               :placeholder="t('tools.pwd_box.password_placeholder')"
