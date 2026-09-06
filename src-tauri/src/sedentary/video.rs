@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager, Runtime};
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -25,7 +25,7 @@ const MAX_USER_VIDEO_BYTES: u64 = 20 * 1024 * 1024;
 const SEDENTARY_USER_VIDEO_EXTENSIONS: [&str; 3] = ["mp4", "webm", "mov"];
 
 /// 视频源扩展名是否在白名单内（mp4/webm/mov，大小写不敏感）。
-#[cfg_attr(not(windows), allow(dead_code))]
+#[cfg_attr(not(sedentary_supported), allow(dead_code))]
 fn is_supported_video_extension(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -41,7 +41,7 @@ fn is_supported_video_extension(path: &Path) -> bool {
 ///
 /// 纯函数便于单测。`source_len` 为源文件字节数，`target` 为目标文件字节数
 /// （`None` 表示目标不存在）。
-#[cfg_attr(not(windows), allow(dead_code))]
+#[cfg_attr(not(sedentary_supported), allow(dead_code))]
 fn should_copy_video(source_len: u64, target: Option<u64>) -> bool {
     match target {
         None => true,
@@ -53,7 +53,7 @@ fn should_copy_video(source_len: u64, target: Option<u64>) -> bool {
 ///
 /// 避免 `std::fs::copy` 直接写目标导致「半截拷贝当合法视频」：复制失败时目标
 /// 保持原样，临时文件被清理；拷贝结果为空则报错，不让空/半截文件落地。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 fn copy_video_atomic(source: &Path, target: &Path, what: &str) -> Result<(), String> {
     let parent = target.parent().ok_or_else(|| format!("{what}目录无效"))?;
     std::fs::create_dir_all(parent).map_err(|error| format!("创建提醒视频目录失败：{error}"))?;
@@ -79,7 +79,7 @@ fn copy_video_atomic(source: &Path, target: &Path, what: &str) -> Result<(), Str
 /// 生产：bundle resource 落盘在 `resource_dir()` 根（`sedentary-reminder.mp4`）；
 /// dev：`bundle.resources` 不生效，回退工作区 `src-tauri/resources/sedentary-reminder.mp4`。
 /// 两处都找不到时返回 `None`（无视频模式）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 fn resolve_sedentary_video_source<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     let candidates = [
         app.path().resource_dir().ok()?.join(SEDENTARY_VIDEO_SOURCE_FILE),
@@ -97,7 +97,7 @@ fn resolve_sedentary_video_source<R: Runtime>(app: &AppHandle<R>) -> Option<Path
 ///
 /// 返回视频绝对路径；源缺失/复制失败仅记日志并回退 `None`
 /// （无视频模式，弹窗保持纯红色界面，不阻断启动）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 pub fn ensure_reminder_video<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     let dir = app
         .path()
@@ -141,7 +141,7 @@ pub fn ensure_reminder_video<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> 
 }
 
 /// 用户视频大小是否超限（> 20MB）。
-#[cfg_attr(not(windows), allow(dead_code))]
+#[cfg_attr(not(sedentary_supported), allow(dead_code))]
 fn exceeds_max_video_size(len: u64) -> bool {
     len > MAX_USER_VIDEO_BYTES
 }
@@ -156,7 +156,7 @@ fn exceeds_max_video_size(len: u64) -> bool {
 /// mp4/webm/mov 白名单内（与前端对话框过滤器一致）、且大小 ≤ 20MB。
 /// 复制方向固定为「本地源 → 应用数据目录」，不会从 asset scope 反向覆盖系统
 /// 关键目录；扩展名+大小约束也把「复制任意文件」的风险限制在小型媒体文件。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 #[tauri::command(rename_all = "camelCase")]
 #[specta::specta]
 pub fn sedentary_set_user_video<R: Runtime>(
@@ -201,7 +201,7 @@ pub fn sedentary_set_user_video<R: Runtime>(
 /// （`ensure_reminder_video` 会重新复制固定源；源缺失则回退无视频模式）。
 ///
 /// 返回恢复后的视频绝对路径（无视频模式返回空串）。
-#[cfg(windows)]
+#[cfg(sedentary_supported)]
 #[tauri::command]
 #[specta::specta]
 pub fn sedentary_reset_user_video<R: Runtime>(app: AppHandle<R>) -> Result<String, AppError> {

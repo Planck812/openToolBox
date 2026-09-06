@@ -1,6 +1,16 @@
 fn main() {
     tauri_build::build();
 
+    // 久坐提醒的平台门控别名。该功能唯一的平台相关点是「读取系统空闲时长」
+    // （Windows `GetLastInputInfo` / macOS `CGEventSourceSecondsSinceLastEventType`），
+    // 其余配置、视频、弹窗窗口逻辑都是跨平台的。
+    // Linux 暂无空闲检测实现，故不纳入；将来补上只需在此处加一个平台。
+    println!("cargo::rustc-check-cfg=cfg(sedentary_supported)");
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if matches!(target_os.as_str(), "windows" | "macos") {
+        println!("cargo::rustc-cfg=sedentary_supported");
+    }
+
     // Windows 测试目标嵌入 comctl32 v6 manifest：`cargo test` 生成的测试 exe 默认无
     // manifest，一旦测试链接 tauri 运行时（如 tauri-specta 导出测试）就会因 comctl32
     // v5.82 缺 v6 导出函数而 STATUS_ENTRYPOINT_NOT_FOUND 启动失败。见 win-test.manifest 注释。
