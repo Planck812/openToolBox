@@ -12,58 +12,86 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # 一个平台失败不应连带取消另一个平台：跨平台问题往往只出现在单侧，
+      # 保留另一侧的产物与日志便于对照定位。
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows (x64)
+            bundles: nsis
+            artifact_path: src-tauri/target/release/bundle/nsis/*.exe
+          # macos-latest 目前为 macos-14-arm64（Apple Silicon）。
+          # Intel 机型需另开 macos-13 job，当前未覆盖。
+          - os: macos-latest
+            label: macOS (Apple Silicon)
+            bundles: dmg
+            artifact_path: src-tauri/target/release/bundle/dmg/*.dmg
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configure Windows Defender Exclusions
-      run: |
-        Add-MpPreference -ExclusionPath "${{ github.workspace }}", "C:\Users\runneradmin\.cargo", "C:\npm\cache"
-      shell: pwsh
+      - name: Configure Windows Defender Exclusions
+        if: runner.os == 'Windows'
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}", "C:\Users\runneradmin\.cargo", "C:\npm\cache"
+        shell: pwsh
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
 
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: src-tauri
-        cache-all-crates: true
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-all-crates: true
+          # 缓存按平台隔离，避免不同 OS 的构建产物互相污染。
+          key: ${{ matrix.os }}
 
-    - name: Cache Tessdata
-      uses: actions/cache@v4
-      with:
-        path: |
-          src-tauri/tessdata
-          src-tauri/tessdata_fast
-        key: tessdata-${{ runner.os }}
+      - name: Cache Tessdata
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/tessdata
+            src-tauri/tessdata_fast
+          key: tessdata-${{ runner.os }}
 
-    - name: Install dependencies
-      run: npm ci --legacy-peer-deps
+      # tesseract-rs 会从源码编译 leptonica/tesseract，硬依赖 cmake。
+      # macos runner 镜像已预装，这里只做存在性校验：缺失时的报错信息
+      # （"is `cmake` not installed?"）出现在构建中段，不易一眼定位。
+      - name: Verify cmake (macOS)
+        if: runner.os == 'macOS'
+        run: cmake --version
 
-    - name: Build app (NSIS only)
-      run: npm run tauri build -- --bundles nsis
-      env:
-        CARGO_BUILD_JOBS: 2
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
 
+      - name: Build app
+        run: npm run tauri build -- --bundles ${{ matrix.bundles }}
+        env:
+          CARGO_BUILD_JOBS: 2
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: src-tauri/target/release/bundle/nsis/*.exe
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          # upload-artifact v4 要求同一次运行内产物名唯一，矩阵各 job 必须带区分后缀。
+          name: build-artifacts-${{ runner.os }}
+          path: ${{ matrix.artifact_path }}
 
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: src-tauri/target/release/bundle/nsis/*.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          # 各平台 job 分别向同一个 tag 的 release 追加自己的产物。
+          files: ${{ matrix.artifact_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
