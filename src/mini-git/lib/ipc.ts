@@ -1,23 +1,34 @@
-import { commands, type MiniGitError } from '@/lib/ipc/bindings';
-
 export class MiniGitIpcError extends Error {
   code: string;
-  constructor(err: MiniGitError) {
-    super(err.message);
+  constructor(err: any) {
+    const msg = (err && typeof err === 'object' && 'message' in err)
+      ? err.message
+      : (typeof err === 'string' ? err : JSON.stringify(err));
+    super(msg);
     this.name = 'MiniGitIpcError';
-    this.code = err.code;
+    this.code = (err && typeof err === 'object' && 'code' in err) ? err.code : 'UNKNOWN';
   }
 }
 
 /**
  * Unwraps a Specta result: returns `data` on success, or throws MiniGitIpcError on failure.
  */
-export async function unwrap<T>(promise: Promise<{ status: 'ok'; data: T } | { status: 'error'; error: MiniGitError }>): Promise<T> {
-  const res = await promise;
-  if (res.status === 'ok') {
-    return res.data;
+export async function unwrap<T>(promise: Promise<{ status: 'ok'; data: T } | { status: 'error'; error: any }>): Promise<T> {
+  try {
+    const res = await promise;
+    if (res && typeof res === 'object' && 'status' in res) {
+      if (res.status === 'ok') {
+        return res.data;
+      }
+      throw new MiniGitIpcError(res.error);
+    }
+    return res as unknown as T;
+  } catch (err) {
+    if (err instanceof MiniGitIpcError) {
+      throw err;
+    }
+    throw new MiniGitIpcError(err);
   }
-  throw new MiniGitIpcError(res.error);
 }
 
 export const gitIpc = {

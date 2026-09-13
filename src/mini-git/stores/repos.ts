@@ -135,10 +135,12 @@ export const useReposStore = defineStore('minigit-repos', {
 
         this.repos.push(newRepo);
         this.save();
-        return newRepo;
       } catch (err: any) {
-        this.errorMessage = err.message || '添加仓库失败';
-        throw err;
+        const msg = (err && typeof err === 'object' && 'message' in err)
+          ? err.message
+          : (typeof err === 'string' ? err : '添加仓库失败');
+        this.errorMessage = msg;
+        throw new Error(msg);
       } finally {
         this.isLoading = false;
       }

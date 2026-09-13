@@ -65,8 +65,11 @@ const enterRepo = async (repo: RepoEntry) => {
     reposStore.touchRepo(repo.path);
     router.push({ path: '/workspace', query: { path: repo.path } });
   } catch (err: any) {
-    reposStore.markInvalid(repo.path, err.message || '仓库无法打开');
-    errorMessage.value = `打开失败：${err.message || '仓库无效'}`;
+    const msg = (err && typeof err === 'object' && 'message' in err)
+      ? err.message
+      : (typeof err === 'string' ? err : '仓库无法打开');
+    reposStore.markInvalid(repo.path, msg);
+    errorMessage.value = `打开失败：${msg}`;
   }
 };
 
@@ -85,7 +88,10 @@ const handleAddRepo = async () => {
       await enterRepo(repo);
     }
   } catch (err: any) {
-    errorMessage.value = err.message || '添加仓库失败';
+    const msg = (err && typeof err === 'object' && 'message' in err)
+      ? err.message
+      : (typeof err === 'string' ? err : '添加仓库失败');
+    errorMessage.value = msg;
   } finally {
     isAdding.value = false;
   }
@@ -102,7 +108,10 @@ const handleRelocate = async (repo: RepoEntry) => {
       await reposStore.relocateRepo(repo.path, selected);
     }
   } catch (err: any) {
-    errorMessage.value = err.message || '重新定位失败';
+    const msg = (err && typeof err === 'object' && 'message' in err)
+      ? err.message
+      : (typeof err === 'string' ? err : '重新定位失败');
+    errorMessage.value = msg;
   }
 };
 
