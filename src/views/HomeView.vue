@@ -32,6 +32,7 @@ import { getToolById, tools } from '@/tools/registry';
 import { readText } from '@tauri-apps/plugin-clipboard-manager';
 import { copyText } from '@/lib/clipboard';
 import { getTimestampQuickResults, getDefaultTimestampQuickResultIndex } from '@/tools/timestamp/quick-results';
+import { commands } from '@/lib/ipc/bindings';
 
 import type { NavigationSection, SidebarMode } from './home-types';
 type RegisteredTool = (typeof tools)[number];
@@ -47,6 +48,11 @@ const { quickResult, quickJoinPrefix, activeQuickActionKey, hasActivatedQuickWor
 });
 const openTool = (id: string) => {
   store.addRecentTool(id);
+  const tool = getToolById(id);
+  if (tool?.metadata.mode === 'window') {
+    commands.residentOpen(id);
+    return;
+  }
   router.push(`/tool/${id}`);
 };
 const currentSidebarMode = ref<SidebarMode>('all');

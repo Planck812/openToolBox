@@ -6,6 +6,7 @@ export interface ToolMetadata {
   description: string; // i18n key
   icon: Component;
   keywords: string[];
+  mode?: 'inline' | 'window';
 }
 
 export interface ToolMatchResult {

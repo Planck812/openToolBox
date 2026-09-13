@@ -13,6 +13,8 @@ mod shortcuts;
 mod timer;
 mod toast;
 mod tray;
+pub mod minigit;
+pub mod resident;
 #[cfg(all(debug_assertions, windows))]
 mod console_shutdown;
 
@@ -227,10 +229,46 @@ macro_rules! pwdbox_commands {
 
 macro_rules! toast_commands {
     ($builder:expr, [$($cmd:tt)*]) => {
-        $builder.invoke_handler(tauri::generate_handler![
-            $($cmd)*
+        resident_commands!($builder, [$($cmd)*
             toast::toast_show,
             toast::toast_get,
+        ])
+    };
+}
+
+macro_rules! resident_commands {
+    ($builder:expr, [$($cmd:tt)*]) => {
+        minigit_commands!($builder, [$($cmd)*
+            resident::commands::resident_open,
+            resident::commands::resident_focus,
+        ])
+    };
+}
+
+macro_rules! minigit_commands {
+    ($builder:expr, [$($cmd:tt)*]) => {
+        $builder.invoke_handler(tauri::generate_handler![
+            $($cmd)*
+            minigit::mg_validate_repo,
+            minigit::mg_open_session,
+            minigit::mg_close_session,
+            minigit::mg_repo_state,
+            minigit::mg_list_dir,
+            minigit::mg_list_tracked_files,
+            minigit::mg_read_file_meta,
+            minigit::mg_read_file_content,
+            minigit::mg_read_blob_content,
+            minigit::mg_list_refs,
+            minigit::mg_has_changes,
+            minigit::mg_log_open,
+            minigit::mg_log_next,
+            minigit::mg_log_close,
+            minigit::mg_commit_detail,
+            minigit::mg_status,
+            minigit::mg_diff_prepare,
+            minigit::mg_search_start,
+            minigit::mg_search_poll,
+            minigit::mg_search_cancel,
         ])
     };
 }
@@ -363,6 +401,28 @@ macro_rules! specta_commands {
             timer::alert::timer_alert_action::<tauri::Wry>,
             toast::toast_show::<tauri::Wry>,
             toast::toast_get,
+            resident::commands::resident_open::<tauri::Wry>,
+            resident::commands::resident_focus::<tauri::Wry>,
+            minigit::mg_validate_repo,
+            minigit::mg_open_session,
+            minigit::mg_close_session,
+            minigit::mg_repo_state,
+            minigit::mg_list_dir,
+            minigit::mg_list_tracked_files,
+            minigit::mg_read_file_meta,
+            minigit::mg_read_file_content,
+            minigit::mg_read_blob_content,
+            minigit::mg_list_refs,
+            minigit::mg_has_changes,
+            minigit::mg_log_open,
+            minigit::mg_log_next,
+            minigit::mg_log_close,
+            minigit::mg_commit_detail,
+            minigit::mg_status,
+            minigit::mg_diff_prepare,
+            minigit::mg_search_start,
+            minigit::mg_search_poll,
+            minigit::mg_search_cancel,
         ]
     };
 }
@@ -482,6 +542,28 @@ macro_rules! specta_commands {
             timer::alert::timer_alert_action::<tauri::Wry>,
             toast::toast_show::<tauri::Wry>,
             toast::toast_get,
+            resident::commands::resident_open::<tauri::Wry>,
+            resident::commands::resident_focus::<tauri::Wry>,
+            minigit::mg_validate_repo,
+            minigit::mg_open_session,
+            minigit::mg_close_session,
+            minigit::mg_repo_state,
+            minigit::mg_list_dir,
+            minigit::mg_list_tracked_files,
+            minigit::mg_read_file_meta,
+            minigit::mg_read_file_content,
+            minigit::mg_read_blob_content,
+            minigit::mg_list_refs,
+            minigit::mg_has_changes,
+            minigit::mg_log_open,
+            minigit::mg_log_next,
+            minigit::mg_log_close,
+            minigit::mg_commit_detail,
+            minigit::mg_status,
+            minigit::mg_diff_prepare,
+            minigit::mg_search_start,
+            minigit::mg_search_poll,
+            minigit::mg_search_cancel,
         ]
     };
 }
@@ -656,6 +738,7 @@ pub fn run() {
             crate::shortcuts::initialize(app)?;
             crate::env::initialize(app)?;
             crate::tray::create_quicklaunch_window(app)?;
+            app.manage(std::sync::Arc::new(crate::minigit::SessionManager::new()));
             #[cfg(debug_assertions)]
             if let Err(e) = export_specta_bindings() {
                 log::error!("[specta] 导出 TS 绑定失败: {e}");
@@ -666,8 +749,8 @@ pub fn run() {
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
-                    // Only the main window hides to tray. Pin windows are destroyed.
-                    if window.label() == "main" {
+                    // Only the main window and mini-git window hide to tray/background. Pin windows are destroyed.
+                    if window.label() == "main" || window.label() == "mini-git" {
                         let _ = window.hide();
                         api.prevent_close();
                     } else if window.label().starts_with("pin-") {

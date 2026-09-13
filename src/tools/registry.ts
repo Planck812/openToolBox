@@ -29,6 +29,7 @@ import { sedentaryReminderTool } from './sedentary-reminder';
 import { timerCenterTool } from './timer-center';
 import { aesTool } from './aes-tool';
 import { promptManagerTool } from './prompt-manager';
+import { miniGitTool } from './mini-git';
 import type { Tool } from './interface';
 
 /**
@@ -87,6 +88,7 @@ export const tools: Tool[] = [
   timerCenterTool,
   aesTool,
   promptManagerTool,
+  miniGitTool,
 ];
 
 export const getToolById = (id: string) => tools.find(t => t.metadata.id === id);

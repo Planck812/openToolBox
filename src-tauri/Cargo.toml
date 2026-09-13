@@ -44,6 +44,7 @@ aes-gcm = "0.10"
 rand = "0.8"
 base64 = "0.22"
 log = "0.4"
+git2 = { version = "0.20", default-features = false, features = ["vendored-libgit2"] }
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }
 specta-typescript = "0.0.12"
