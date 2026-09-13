@@ -135,6 +135,7 @@ export const useReposStore = defineStore('minigit-repos', {
 
         this.repos.push(newRepo);
         this.save();
+        return newRepo;
       } catch (err: any) {
         const msg = (err && typeof err === 'object' && 'message' in err)
           ? err.message

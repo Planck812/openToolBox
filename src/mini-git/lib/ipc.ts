@@ -1,3 +1,5 @@
+import { commands } from '@/lib/ipc/bindings';
+
 export class MiniGitIpcError extends Error {
   code: string;
   constructor(err: any) {
