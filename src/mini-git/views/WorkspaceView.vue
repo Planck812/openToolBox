@@ -196,14 +196,17 @@ onMounted(async () => {
   window.addEventListener('focus', onWindowFocus);
 
   const queryPath = route.query.path as string;
-  if (queryPath && queryPath !== gitData.repoPath) {
-    try {
-      await gitData.openRepo(queryPath);
-      sessionStore.initRepo(queryPath, repoName.value);
-    } catch {
-      reposStore.markInvalid(queryPath, '仓库无法打开');
-      backToPicker();
+  if (queryPath) {
+    if (queryPath !== gitData.repoPath) {
+      try {
+        await gitData.openRepo(queryPath);
+      } catch {
+        reposStore.markInvalid(queryPath, '仓库无法打开');
+        backToPicker();
+        return;
+      }
     }
+    sessionStore.initRepo(queryPath, repoName.value);
   }
 });
 

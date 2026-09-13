@@ -34,9 +34,13 @@ pub fn validate_repo(path_str: &str) -> Result<RepoInfo, MiniGitError> {
     let dot_git = path.join(".git");
     if !dot_git.exists() {
         // Check if it might be a subdirectory of a git repository
-        if let Ok(parent_repo) = Repository::open(path) {
+        if let Ok(parent_repo) = Repository::discover(path) {
             if let Some(workdir) = parent_repo.workdir() {
-                if workdir != path {
+                let norm_workdir = std::fs::canonicalize(workdir)
+                    .unwrap_or_else(|_| workdir.to_path_buf());
+                let norm_path = std::fs::canonicalize(path)
+                    .unwrap_or_else(|_| path.to_path_buf());
+                if norm_workdir != norm_path {
                     return Err(MiniGitError::NotRepoRoot(
                         "该目录不是仓库根目录，请选择包含 .git 的目录".to_string(),
                     ));

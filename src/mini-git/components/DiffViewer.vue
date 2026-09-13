@@ -54,7 +54,10 @@ const loadDiff = async () => {
   diffRows.value = [];
 
   try {
-    const plan = await gitIpc.diffPrepare(gitData.repoId, props.source, props.relPath);
+    const effectiveSource = (props.source === 'commit' && props.commitOid)
+      ? `commit:${props.commitOid}`
+      : props.source;
+    const plan = await gitIpc.diffPrepare(gitData.repoId, effectiveSource, props.relPath);
     diffPlan.value = plan;
     diffRows.value = buildDiffRows(plan);
     currentChangeIndex.value = totalChanges.value > 0 ? 1 : 0;
