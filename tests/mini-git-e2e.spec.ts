@@ -69,6 +69,7 @@ vi.mock('@/lib/ipc/bindings', () => ({
 import App from '@/mini-git/App.vue';
 import RepoPickerView from '@/mini-git/views/RepoPickerView.vue';
 import WorkspaceView from '@/mini-git/views/WorkspaceView.vue';
+import FileTree from '@/mini-git/components/FileTree.vue';
 import { useReposStore } from '@/mini-git/stores/repos';
 import { useGitDataStore } from '@/mini-git/stores/gitdata';
 import { useTabsStore } from '@/mini-git/stores/tabs';
@@ -123,12 +124,34 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
       },
     });
 
-    mockListDir.mockResolvedValue({
-      status: 'ok',
-      data: [
-        { name: 'src', rel_path: 'src', is_dir: true, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 0 },
-        { name: 'README.md', rel_path: 'README.md', is_dir: false, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 1024 },
-      ],
+    mockListDir.mockImplementation(async (_repoId: string, relPath: string) => {
+      if (relPath === '') {
+        return {
+          status: 'ok',
+          data: [
+            { name: 'src', rel_path: 'src', is_dir: true, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 0 },
+            { name: 'README.md', rel_path: 'README.md', is_dir: false, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 1024 },
+          ],
+        };
+      }
+      if (relPath === 'src') {
+        return {
+          status: 'ok',
+          data: [
+            { name: 'components', rel_path: 'src/components', is_dir: true, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 0 },
+            { name: 'index.ts', rel_path: 'src/index.ts', is_dir: false, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 256 },
+          ],
+        };
+      }
+      if (relPath === 'src/components') {
+        return {
+          status: 'ok',
+          data: [
+            { name: 'FileTree.vue', rel_path: 'src/components/FileTree.vue', is_dir: false, is_submodule: false, is_symlink: false, is_ignored: false, is_tracked: true, size: 512 },
+          ],
+        };
+      }
+      return { status: 'ok', data: [] };
     });
 
     mockListTrackedFiles.mockResolvedValue({
@@ -502,6 +525,64 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     await searchInput.trigger('keydown', { key: 'ArrowUp' });
     await flushPromises();
     expect(reposStore.selectedIndex).toBe(0);
+  });
+
+  it('E2E Flow 8: 文件树支持多层子目录递归展开与收起 (根 -> src -> components -> FileTree.vue)', async () => {
+    const reposStore = useReposStore();
+    await reposStore.addRepo('C:/repos/test-repo');
+
+    router.push({ path: '/workspace', query: { path: 'C:/repos/test-repo' } });
+    await router.isReady();
+
+    const wrapper = mount(App, {
+      global: {
+        plugins: [pinia, router],
+      },
+    });
+    await flushPromises();
+
+    const fileTree = wrapper.findComponent(FileTree);
+    expect(fileTree.exists()).toBe(true);
+
+    // 1. 初始状态：显示根目录条目，尚未展开 src
+    expect(fileTree.text()).toContain('src');
+    expect(fileTree.text()).not.toContain('components');
+    expect(fileTree.text()).not.toContain('FileTree.vue');
+
+    // 2. 点击展开第 1 层目录：src
+    const srcRow = fileTree.findAll('div').find((d) => d.text().trim().startsWith('src') && d.classes().includes('cursor-pointer'));
+    expect(srcRow).toBeDefined();
+    await srcRow!.trigger('click');
+    await flushPromises();
+
+    // 此时应展示第 2 层：components 与 index.ts
+    expect(fileTree.text()).toContain('components');
+    expect(fileTree.text()).toContain('index.ts');
+    expect(fileTree.text()).not.toContain('FileTree.vue');
+
+    // 3. 点击展开第 2 层目录：components (C:\ws\openToolBox\src\components)
+    const componentsRow = fileTree.findAll('div').find((d) => d.text().trim().startsWith('components') && d.classes().includes('cursor-pointer'));
+    expect(componentsRow).toBeDefined();
+    await componentsRow!.trigger('click');
+    await flushPromises();
+
+    // 此时应成功展示第 3 层：FileTree.vue
+    expect(fileTree.text()).toContain('FileTree.vue');
+
+    // 4. 双击 FileTree.vue 打开标签页
+    const fileTreeRow = fileTree.findAll('div').find((d) => d.text().trim() === 'FileTree.vue' && d.classes().includes('cursor-pointer'));
+    expect(fileTreeRow).toBeDefined();
+    await fileTreeRow!.trigger('dblclick');
+    await flushPromises();
+
+    const tabsStore = useTabsStore();
+    expect(tabsStore.tabs.some((t) => t.path === 'src/components/FileTree.vue')).toBe(true);
+
+    // 5. 再次点击 components 目录，能够正常收起第 3 层
+    await componentsRow!.trigger('click');
+    await flushPromises();
+    expect(fileTree.text()).not.toContain('FileTree.vue');
+    expect(fileTree.text()).toContain('components');
   });
 });
 

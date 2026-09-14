@@ -1,18 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import {
-  Folder,
-  FolderOpen,
-  FileCode,
-  ChevronRight,
-  ChevronDown,
-  Boxes,
-  RefreshCw,
-} from 'lucide-vue-next';
+import { RefreshCw } from 'lucide-vue-next';
 import { useGitDataStore } from '../stores/gitdata';
 import { useSessionStore } from '../stores/session';
 import { useTabsStore } from '../stores/tabs';
 import { compareTreeEntries } from '../lib/naturalSort';
+import FileTreeNode from './FileTreeNode.vue';
 import type { TreeEntry } from '@/lib/ipc/bindings';
 
 const gitData = useGitDataStore();
@@ -24,7 +17,7 @@ const childrenMap = ref(new Map<string, TreeEntry[]>());
 const loadingPaths = ref(new Set<string>());
 const rootEntries = ref<TreeEntry[]>([]);
 
-// Mapping of relPath -> status flag (M, A, D, U)
+// Mapping of relPath -> status flag (M, A, D, U, C)
 const fileStatusMap = computed(() => {
   const map = new Map<string, string>();
   const st = gitData.workingStatus;
@@ -40,7 +33,9 @@ const fileStatusMap = computed(() => {
 // Load entries for a directory
 const loadDirEntries = async (relPath: string) => {
   if (loadingPaths.value.has(relPath)) return;
-  loadingPaths.value.add(relPath);
+  const nextLoading = new Set(loadingPaths.value);
+  nextLoading.add(relPath);
+  loadingPaths.value = nextLoading;
 
   try {
     const raw = await gitData.listDirectory(relPath);
@@ -51,15 +46,19 @@ const loadDirEntries = async (relPath: string) => {
     if (relPath === '') {
       rootEntries.value = visible;
     } else {
-      childrenMap.value.set(relPath, visible);
+      const nextMap = new Map(childrenMap.value);
+      nextMap.set(relPath, visible);
+      childrenMap.value = nextMap;
     }
   } finally {
-    loadingPaths.value.delete(relPath);
+    const nextLoading = new Set(loadingPaths.value);
+    nextLoading.delete(relPath);
+    loadingPaths.value = nextLoading;
   }
 };
 
 const refreshTree = async () => {
-  childrenMap.value.clear();
+  childrenMap.value = new Map();
   await loadDirEntries('');
   // Re-expand previously expanded nodes
   for (const p of sessionStore.expandedTreeNodes) {
@@ -128,102 +127,20 @@ const copyPath = async (relPath: string, isAbsolute: boolean) => {
 
     <!-- Tree Content -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden p-1 font-mono text-[11.5px]">
-      <!-- Recursive template for tree entries -->
-      <template v-for="entry in rootEntries" :key="entry.rel_path">
-        <!-- Node row -->
-        <div
-          class="group flex items-center h-6 px-1 rounded hover:bg-muted/50 cursor-pointer space-x-1.5 transition-colors"
-          @click="openFile(entry, false)"
-          @dblclick="openFile(entry, true)"
-          @contextmenu.prevent="copyPath(entry.rel_path, false)"
-        >
-          <!-- Expand/Collapse arrow -->
-          <button
-            v-if="entry.is_dir && !entry.is_submodule"
-            type="button"
-            class="p-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
-            @click.stop="toggleDirectory(entry)"
-          >
-            <ChevronDown v-if="sessionStore.expandedTreeNodes.has(entry.rel_path)" class="w-3.5 h-3.5" />
-            <ChevronRight v-else class="w-3.5 h-3.5" />
-          </button>
-          <span v-else class="w-3.5 flex-shrink-0" />
-
-          <!-- Icon -->
-          <Boxes v-if="entry.is_submodule" class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-          <FolderOpen v-else-if="entry.is_dir && sessionStore.expandedTreeNodes.has(entry.rel_path)" class="w-3.5 h-3.5 text-amber-500/90 flex-shrink-0" />
-          <Folder v-else-if="entry.is_dir" class="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" />
-          <FileCode v-else class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-
-          <!-- Name -->
-          <span class="truncate flex-1 font-sans text-foreground/90">{{ entry.name }}</span>
-
-          <!-- Submodule label -->
-          <span v-if="entry.is_submodule" class="text-[10px] text-amber-500 border border-amber-500/30 px-1 rounded">
-            子模块
-          </span>
-
-          <!-- Status badge (M, A, D, U) -->
-          <span
-            v-if="fileStatusMap.has(entry.rel_path)"
-            class="text-[10px] font-bold px-1 rounded flex-shrink-0"
-            :class="{
-              'text-amber-500': fileStatusMap.get(entry.rel_path) === 'M',
-              'text-emerald-500': fileStatusMap.get(entry.rel_path) === 'A',
-              'text-rose-500': fileStatusMap.get(entry.rel_path) === 'D',
-              'text-sky-500': fileStatusMap.get(entry.rel_path) === 'U',
-              'text-red-500': fileStatusMap.get(entry.rel_path) === 'C',
-            }"
-          >
-            {{ fileStatusMap.get(entry.rel_path) }}
-          </span>
-        </div>
-
-        <!-- Subdirectory entries if expanded -->
-        <template v-if="entry.is_dir && sessionStore.expandedTreeNodes.has(entry.rel_path)">
-          <div class="pl-3 border-l border-border/40 ml-2.5 my-0.5">
-            <div
-              v-for="sub in childrenMap.get(entry.rel_path) || []"
-              :key="sub.rel_path"
-              class="group flex items-center h-6 px-1 rounded hover:bg-muted/50 cursor-pointer space-x-1.5 transition-colors"
-              @click="openFile(sub, false)"
-              @dblclick="openFile(sub, true)"
-              @contextmenu.prevent="copyPath(sub.rel_path, false)"
-            >
-              <button
-                v-if="sub.is_dir && !sub.is_submodule"
-                type="button"
-                class="p-0.5 text-muted-foreground hover:text-foreground flex-shrink-0"
-                @click.stop="toggleDirectory(sub)"
-              >
-                <ChevronDown v-if="sessionStore.expandedTreeNodes.has(sub.rel_path)" class="w-3.5 h-3.5" />
-                <ChevronRight v-else class="w-3.5 h-3.5" />
-              </button>
-              <span v-else class="w-3.5 flex-shrink-0" />
-
-              <Boxes v-if="sub.is_submodule" class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-              <FolderOpen v-else-if="sub.is_dir && sessionStore.expandedTreeNodes.has(sub.rel_path)" class="w-3.5 h-3.5 text-amber-500/90 flex-shrink-0" />
-              <Folder v-else-if="sub.is_dir" class="w-3.5 h-3.5 text-amber-500/80 flex-shrink-0" />
-              <FileCode v-else class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-
-              <span class="truncate flex-1 font-sans text-foreground/90">{{ sub.name }}</span>
-
-              <span
-                v-if="fileStatusMap.has(sub.rel_path)"
-                class="text-[10px] font-bold px-1 rounded flex-shrink-0"
-                :class="{
-                  'text-amber-500': fileStatusMap.get(sub.rel_path) === 'M',
-                  'text-emerald-500': fileStatusMap.get(sub.rel_path) === 'A',
-                  'text-rose-500': fileStatusMap.get(sub.rel_path) === 'D',
-                  'text-sky-500': fileStatusMap.get(sub.rel_path) === 'U',
-                }"
-              >
-                {{ fileStatusMap.get(sub.rel_path) }}
-              </span>
-            </div>
-          </div>
-        </template>
-      </template>
+      <div v-if="rootEntries.length === 0" class="h-32 flex flex-col items-center justify-center text-muted-foreground/60 text-xs">
+        暂无文件
+      </div>
+      <FileTreeNode
+        v-for="entry in rootEntries"
+        :key="entry.rel_path"
+        :entry="entry"
+        :children-map="childrenMap"
+        :loading-paths="loadingPaths"
+        :file-status-map="fileStatusMap"
+        @toggle="toggleDirectory"
+        @open="openFile"
+        @copy-path="copyPath"
+      />
     </div>
   </div>
 </template>

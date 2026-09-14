@@ -148,20 +148,24 @@ export const useSessionStore = defineStore('minigit-session', {
     },
 
     toggleTreeNode(path: string) {
-      if (this.expandedTreeNodes.has(path)) {
-        this.expandedTreeNodes.delete(path);
+      const next = new Set(this.expandedTreeNodes);
+      if (next.has(path)) {
+        next.delete(path);
       } else {
-        this.expandedTreeNodes.add(path);
+        next.add(path);
       }
+      this.expandedTreeNodes = next;
       this.saveSession();
     },
 
     setTreeNodeExpanded(path: string, expanded: boolean) {
+      const next = new Set(this.expandedTreeNodes);
       if (expanded) {
-        this.expandedTreeNodes.add(path);
+        next.add(path);
       } else {
-        this.expandedTreeNodes.delete(path);
+        next.delete(path);
       }
+      this.expandedTreeNodes = next;
       this.saveSession();
     },
 
