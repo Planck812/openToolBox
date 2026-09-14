@@ -54,6 +54,7 @@ export const gitIpc = {
   searchStart: (repoId: string, query: { text: string; refname: string | null; author_contains: string | null }) => unwrap(commands.mgSearchStart(repoId, query)),
   searchPoll: (searchId: string) => unwrap(commands.mgSearchPoll(searchId)),
   searchCancel: (searchId: string) => unwrap(commands.mgSearchCancel(searchId)),
+  unpushedCommits: (repoId: string) => unwrap(commands.mgUnpushedCommits(repoId)),
   residentOpen: (id: string) => commands.residentOpen(id),
   residentFocus: (id: string) => commands.residentFocus(id),
 };

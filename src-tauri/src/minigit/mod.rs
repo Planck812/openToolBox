@@ -305,3 +305,19 @@ pub async fn mg_search_cancel(
     .await
     .map_err(|e| MiniGitError::Other(e.to_string()))?
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mg_unpushed_commits(
+    state: State<'_, MinigitState>,
+    repo_id: String,
+) -> Result<Vec<CommitDetail>, MiniGitError> {
+    let state_clone = Arc::clone(&*state);
+    tauri::async_runtime::spawn_blocking(move || {
+        let repo = state_clone.get_repo(&repo_id)?;
+        log::get_unpushed_commits(&repo, 50)
+    })
+    .await
+    .map_err(|e| MiniGitError::Other(e.to_string()))?
+}
+

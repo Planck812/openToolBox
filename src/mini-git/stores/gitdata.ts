@@ -18,6 +18,8 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
     workingStatus: null as WorkingStatus | null,
     refs: null as Refs | null,
     refsTree: [] as RefTreeNode[],
+    unpushedCommits: [] as CommitDetail[],
+    isLoadingUnpushed: false,
 
     // File tree cache: relPath -> TreeEntry[]
     treeCache: new Map<string, TreeEntry[]>(),
@@ -102,6 +104,7 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       this.workingStatus = null;
       this.refs = null;
       this.refsTree = [];
+      this.unpushedCommits = [];
       this.treeCache.clear();
       this.commits = [];
       this.walkId = null;
@@ -114,8 +117,12 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       if (!this.repoId) return;
       try {
         const prevChanges = this.workingStatus?.total_changes;
-        const status = await gitIpc.status(this.repoId);
+        const [status, unpushed] = await Promise.all([
+          gitIpc.status(this.repoId),
+          gitIpc.unpushedCommits(this.repoId).catch(() => [] as CommitDetail[]),
+        ]);
         this.workingStatus = status;
+        this.unpushedCommits = unpushed;
         this.lastStatusRefreshTime = Date.now();
 
         if (prevChanges !== undefined && prevChanges !== status.total_changes) {
@@ -129,19 +136,34 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       }
     },
 
+    async refreshUnpushedCommits() {
+      if (!this.repoId) return;
+      this.isLoadingUnpushed = true;
+      try {
+        this.unpushedCommits = await gitIpc.unpushedCommits(this.repoId);
+      } catch (e) {
+        console.error('Failed to refresh unpushed commits', e);
+        this.unpushedCommits = [];
+      } finally {
+        this.isLoadingUnpushed = false;
+      }
+    },
+
     async refreshAll() {
       if (!this.repoId) return;
       this.isRefreshing = true;
       try {
-        const [state, refs, status] = await Promise.all([
+        const [state, refs, status, unpushed] = await Promise.all([
           gitIpc.getRepoState(this.repoId),
           gitIpc.listRefs(this.repoId),
           gitIpc.status(this.repoId),
+          gitIpc.unpushedCommits(this.repoId).catch(() => [] as CommitDetail[]),
         ]);
 
         this.repoState = state;
         this.refs = refs;
         this.workingStatus = status;
+        this.unpushedCommits = unpushed;
         this.lastStatusRefreshTime = Date.now();
         this.refsTree = buildRefsTree(refs, {
           head_name: state.head_name,

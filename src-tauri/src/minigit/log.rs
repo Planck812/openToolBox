@@ -367,3 +367,97 @@ pub fn search_commits(
         is_done,
     })
 }
+
+pub fn get_unpushed_commits(
+    repo: &Repository,
+    limit: usize,
+) -> Result<Vec<CommitDetail>, MiniGitError> {
+    let head = match repo.head() {
+        Ok(h) => h,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let head_oid = match head.target() {
+        Some(oid) => oid,
+        None => return Ok(Vec::new()),
+    };
+
+    let mut revwalk = repo
+        .revwalk()
+        .map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+    revwalk
+        .set_sorting(Sort::TIME)
+        .map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+    revwalk
+        .push(head_oid)
+        .map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+
+    let mut has_remote_or_upstream = false;
+
+    // 1. Check if current branch has an upstream tracking branch configured
+    if head.is_branch() {
+        if let Some(branch_name) = head.shorthand() {
+            if let Ok(branch) = repo.find_branch(branch_name, git2::BranchType::Local) {
+                if let Ok(upstream) = branch.upstream() {
+                    if let Some(target) = upstream.get().target() {
+                        let _ = revwalk.hide(target);
+                        has_remote_or_upstream = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. If no upstream on branch, check remote tracking branches
+    if !has_remote_or_upstream {
+        let mut found_matching_remote = false;
+        if let Some(branch_name) = head.shorthand() {
+            if let Ok(remotes) = repo.remotes() {
+                for remote_name in remotes.iter().flatten() {
+                    let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
+                    if let Ok(r) = repo.find_reference(&remote_ref) {
+                        if let Some(target) = r.target() {
+                            let _ = revwalk.hide(target);
+                            found_matching_remote = true;
+                            has_remote_or_upstream = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback: hide all remote tracking branches
+        if !found_matching_remote {
+            if let Ok(references) = repo.references_glob("refs/remotes/*") {
+                for r in references.flatten() {
+                    if let Some(target) = r.target() {
+                        let _ = revwalk.hide(target);
+                        has_remote_or_upstream = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // If repository has no remotes and no upstream at all, return empty list
+    if !has_remote_or_upstream {
+        return Ok(Vec::new());
+    }
+
+    let mut unpushed = Vec::new();
+    for oid_res in revwalk {
+        if unpushed.len() >= limit {
+            break;
+        }
+        let oid = match oid_res {
+            Ok(id) => id,
+            Err(_) => break,
+        };
+        if let Ok(detail) = get_commit_detail(repo, &oid.to_string()) {
+            unpushed.push(detail);
+        }
+    }
+
+    Ok(unpushed)
+}
+

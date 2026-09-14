@@ -21,7 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'toggle', entry: TreeEntry): void;
   (e: 'open', entry: TreeEntry, isPinned: boolean): void;
-  (e: 'copy-path', relPath: string, isAbsolute: boolean): void;
+  (e: 'contextmenu', event: MouseEvent, entry: TreeEntry): void;
 }>();
 
 const sessionStore = useSessionStore();
@@ -46,7 +46,7 @@ const isLoading = computed(() => {
       class="group flex items-center h-6 px-1 rounded hover:bg-muted/50 cursor-pointer space-x-1.5 transition-colors"
       @click="emit('open', entry, false)"
       @dblclick="emit('open', entry, true)"
-      @contextmenu.prevent="emit('copy-path', entry.rel_path, false)"
+      @contextmenu.prevent.stop="emit('contextmenu', $event, entry)"
     >
       <!-- Expand/Collapse arrow -->
       <button
@@ -110,7 +110,7 @@ const isLoading = computed(() => {
         :file-status-map="fileStatusMap"
         @toggle="emit('toggle', $event)"
         @open="(e, p) => emit('open', e, p)"
-        @copy-path="(p, a) => emit('copy-path', p, a)"
+        @contextmenu="(evt, entry) => emit('contextmenu', evt, entry)"
       />
     </div>
   </div>

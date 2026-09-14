@@ -107,6 +107,14 @@ fn test_session_lifecycle_and_operations() {
     assert_eq!(detail.oid, first_commit_oid);
     assert!(!detail.message.is_empty());
 
+    // 9.1 Unpushed commits
+    let unpushed = log::get_unpushed_commits(&git_repo, 20).expect("get_unpushed_commits failed");
+    println!("Found {} unpushed commits", unpushed.len());
+    for c in &unpushed {
+        assert!(!c.oid.is_empty());
+        assert!(!c.summary.is_empty());
+    }
+
     // 10. Diff prepare
     let diff_source = format!("commit:{}", first_commit_oid);
     if let Some(first_file) = detail.files.first() {

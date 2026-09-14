@@ -370,6 +370,7 @@ export const commands = {
 	mgSearchStart: (repoId: string, query: SearchQuery) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_search_start", { repoId, query })),
 	mgSearchPoll: (searchId: string) => typedError<SearchProgress, MiniGitError>(__TAURI_INVOKE("mg_search_poll", { searchId })),
 	mgSearchCancel: (searchId: string) => typedError<null, MiniGitError>(__TAURI_INVOKE("mg_search_cancel", { searchId })),
+	mgUnpushedCommits: (repoId: string) => typedError<CommitDetail[], MiniGitError>(__TAURI_INVOKE("mg_unpushed_commits", { repoId })),
 };
 
 /* Types */

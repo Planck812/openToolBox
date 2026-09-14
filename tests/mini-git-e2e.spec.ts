@@ -38,6 +38,7 @@ const mockDiffPrepare = vi.fn();
 const mockSearchStart = vi.fn();
 const mockSearchPoll = vi.fn();
 const mockSearchCancel = vi.fn();
+const mockUnpushedCommits = vi.fn();
 
 vi.mock('@/lib/ipc/bindings', () => ({
   commands: {
@@ -61,6 +62,7 @@ vi.mock('@/lib/ipc/bindings', () => ({
     mgSearchStart: (...args: any[]) => mockSearchStart(...args),
     mgSearchPoll: (...args: any[]) => mockSearchPoll(...args),
     mgSearchCancel: (...args: any[]) => mockSearchCancel(...args),
+    mgUnpushedCommits: (...args: any[]) => mockUnpushedCommits(...args),
     residentOpen: vi.fn(),
     residentFocus: vi.fn(),
   },
@@ -245,31 +247,25 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     mockDiffPrepare.mockResolvedValue({
       status: 'ok',
       data: {
-        tier: 'Full',
+        tier: 'Tier1Full',
         source: 'working',
         rel_path: 'src/index.ts',
-        old_content: 'console.log("hello");\n',
-        new_content: 'console.log("hello world");\n',
-        hunks: [
-          {
-            old_start: 1,
-            old_lines: 1,
-            new_start: 1,
-            new_lines: 1,
-            header: '@@ -1,1 +1,1 @@',
-            lines: [
-              { origin: '-', content: 'console.log("hello");\n', old_lineno: 1, new_lineno: null },
-              { origin: '+', content: 'console.log("hello world");\n', old_lineno: null, new_lineno: 1 },
-            ],
-          },
-        ],
-        additions: 1,
+        old_content: 'export const a = 1;\n',
+        new_content: 'export const a = 2;\nexport const b = 3;\n',
+        hunks: [],
+        additions: 2,
         deletions: 1,
         is_binary: false,
-        old_size: 21,
-        new_size: 27,
+        old_size: 20,
+        new_size: 40,
         reason: null,
+        old_path: null,
       },
+    });
+
+    mockUnpushedCommits.mockResolvedValue({
+      status: 'ok',
+      data: [],
     });
   };
 
@@ -584,5 +580,149 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     expect(fileTree.text()).not.toContain('FileTree.vue');
     expect(fileTree.text()).toContain('components');
   });
+
+  it('E2E Flow 9: 文件树节点右键打开菜单项（复制绝对路径、复制相对路径）', async () => {
+    setupDefaultMocks();
+    const reposStore = useReposStore();
+    const gitDataStore = useGitDataStore();
+
+    reposStore.addRepo('C:/repos/test-repo', 'test-repo');
+    await gitDataStore.openRepo('C:/repos/test-repo');
+
+    router.push('/workspace');
+    await router.isReady();
+
+    const wrapper = mount(WorkspaceView, {
+      global: {
+        plugins: [pinia, router],
+      },
+    });
+    await flushPromises();
+
+    const fileTree = wrapper.findComponent(FileTree);
+    expect(fileTree.exists()).toBe(true);
+
+    // Mock clipboard writeText
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: writeTextMock,
+      },
+    });
+
+    // 找到 README.md 节点并触发 contextmenu
+    const readmeRow = fileTree.findAll('div').find((d) => d.text().trim() === 'README.md' && d.classes().includes('cursor-pointer'));
+    expect(readmeRow).toBeDefined();
+
+    await readmeRow!.trigger('contextmenu', {
+      clientX: 200,
+      clientY: 300,
+    });
+    await flushPromises();
+
+    // 弹出右键菜单项 Teleport to body
+    const copyBtns = document.body.querySelectorAll('button');
+    const absBtn = Array.from(copyBtns).find((b) => b.textContent?.includes('复制绝对路径'));
+    const relBtn = Array.from(copyBtns).find((b) => b.textContent?.includes('复制相对路径'));
+    expect(absBtn).toBeDefined();
+    expect(relBtn).toBeDefined();
+
+    // 点击复制相对路径
+    (relBtn as HTMLButtonElement).click();
+    await flushPromises();
+    expect(writeTextMock).toHaveBeenCalledWith('README.md');
+
+    // 再次触发 contextmenu 测试复制绝对路径
+    await readmeRow!.trigger('contextmenu', {
+      clientX: 200,
+      clientY: 300,
+    });
+    await flushPromises();
+
+    const absBtn2 = Array.from(document.body.querySelectorAll('button')).find((b) => b.textContent?.includes('复制绝对路径'));
+    expect(absBtn2).toBeDefined();
+    (absBtn2 as HTMLButtonElement).click();
+    await flushPromises();
+    expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('README.md'));
+  });
+
+  it('E2E Flow 10: 展示已提交未推送展示区（提交信息、展开变动文件、查看差异、定位历史）', async () => {
+    setupDefaultMocks();
+    mockUnpushedCommits.mockResolvedValue({
+      status: 'ok',
+      data: [
+        {
+          oid: '70242f4000000000000000000000000000000000',
+          short_oid: '70242f4',
+          author_name: 'Dev User',
+          author_email: 'dev@example.com',
+          author_time: Math.floor(Date.now() / 1000) - 600,
+          author_tz_offset: 480,
+          committer_name: 'Dev User',
+          committer_email: 'dev@example.com',
+          committer_time: Math.floor(Date.now() / 1000) - 600,
+          committer_tz_offset: 480,
+          message: 'feat: add unpushed commit feature\n\nDetailed message',
+          summary: 'feat: add unpushed commit feature',
+          parent_oids: ['5c6c5ca000000000000000000000000000000000'],
+          is_root: false,
+          is_merge: false,
+          files: [
+            { path: 'src/mini-git/components/GitPanel.vue', status: 'M', additions: 15, deletions: 2 },
+          ],
+        },
+      ],
+    });
+
+    const reposStore = useReposStore();
+    const gitDataStore = useGitDataStore();
+    const sessionStore = useSessionStore();
+    const tabsStore = useTabsStore();
+
+    reposStore.addRepo('C:/repos/test-repo', 'test-repo');
+    await gitDataStore.openRepo('C:/repos/test-repo');
+
+    router.push('/workspace');
+    await router.isReady();
+
+    const wrapper = mount(WorkspaceView, {
+      global: {
+        plugins: [pinia, router],
+      },
+    });
+    await flushPromises();
+
+    // 1. 验证“已提交未推送”指示器与分组渲染
+    expect(wrapper.text()).toContain('已提交未推送 (1)');
+    expect(wrapper.text()).toContain('70242f4');
+    expect(wrapper.text()).toContain('feat: add unpushed commit feature');
+
+    // 2. 点击展开未推送提交的文件列表
+    const commitRow = wrapper.findAll('div').find((d) => d.text().includes('70242f4') && d.classes().includes('cursor-pointer'));
+    expect(commitRow).toBeDefined();
+    await commitRow!.trigger('click');
+    await flushPromises();
+
+    // 展开后应显示提交内的变更文件
+    expect(wrapper.text()).toContain('src/mini-git/components/GitPanel.vue');
+
+    // 3. 点击该变更文件打开 Commit Diff 标签页
+    const unpushedFileRow = wrapper.findAll('div').find((d) => d.text().includes('GitPanel.vue') && d.classes().includes('cursor-pointer'));
+    expect(unpushedFileRow).toBeDefined();
+    await unpushedFileRow!.trigger('click');
+    await flushPromises();
+
+    expect(tabsStore.tabs.some((t) => t.path === 'src/mini-git/components/GitPanel.vue' && t.type === 'diff' && t.diffSource === 'commit')).toBe(true);
+
+    // 4. 点击“历史”按钮跳转历史面板
+    const toHistoryBtn = wrapper.findAll('button').find((b) => b.text().includes('历史') && b.classes().includes('border'));
+    expect(toHistoryBtn).toBeDefined();
+    await toHistoryBtn!.trigger('click');
+    await flushPromises();
+
+    expect(sessionStore.activeGitTab).toBe('history');
+    expect(sessionStore.selectedCommitOid).toBe('70242f4000000000000000000000000000000000');
+  });
 });
+
 

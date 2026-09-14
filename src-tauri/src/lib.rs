@@ -564,6 +564,7 @@ macro_rules! specta_commands {
             minigit::mg_search_start,
             minigit::mg_search_poll,
             minigit::mg_search_cancel,
+            minigit::mg_unpushed_commits,
         ]
     };
 }
