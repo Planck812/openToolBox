@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use git2::Repository;
 use super::error::MiniGitError;
 use super::types::TreeEntry;
@@ -97,24 +97,6 @@ pub fn list_dir(repo: &Repository, rel_path: &str) -> Result<Vec<TreeEntry>, Min
             false
         };
 
-        // Check if ignored (B-5: 已跟踪文件/目录绝不作为忽略项处理，避免重复重建规则栈)
-        let is_ignored = if is_tracked {
-            false
-        } else {
-            let check_path = if is_dir {
-                PathBuf::from(format!("{}/", normalized_child_rel))
-            } else {
-                PathBuf::from(&normalized_child_rel)
-            };
-            match repo.status_should_ignore(&check_path) {
-                Ok(ignored) => ignored,
-                Err(e) => {
-                    log::warn!("[minigit] 忽略规则检查失败 ({}): {}", check_path.display(), e);
-                    false
-                }
-            }
-        };
-
         entries.push(TreeEntry {
             name: file_name,
             rel_path: normalized_child_rel,
@@ -122,10 +104,47 @@ pub fn list_dir(repo: &Repository, rel_path: &str) -> Result<Vec<TreeEntry>, Min
             is_submodule,
             is_symlink,
             symlink_target,
-            is_ignored,
+            is_ignored: false,
             is_tracked,
             size,
         });
+    }
+
+    // 忽略判定：只有存在未跟踪条目时才做，且一次 statuses() 覆盖整个目录。
+    // 逐条 status_should_ignore 会让 libgit2 为每个路径重建一次忽略规则栈。
+    if entries.iter().any(|e| !e.is_tracked) {
+        let mut opts = git2::StatusOptions::new();
+        opts.show(git2::StatusShow::Workdir)   // 只比工作区，跳过 HEAD..index 的差异计算
+            .include_ignored(true)
+            .include_untracked(true)
+            .recurse_untracked_dirs(false)     // 只看本层，不进入未跟踪目录
+            .recurse_ignored_dirs(false)       // 忽略目录整体报告一条，不展开
+            .include_unmodified(false)
+            .exclude_submodules(true)
+            .update_index(false)               // 只读：不回写 index 的 stat 缓存
+            .no_refresh(true);
+        if !clean_rel.is_empty() {
+            opts.pathspec(clean_rel);
+        }
+
+        match repo.statuses(Some(&mut opts)) {
+            Ok(statuses) => {
+                let ignored: std::collections::HashSet<String> = statuses
+                    .iter()
+                    .filter(|s| s.status().contains(git2::Status::IGNORED))
+                    .filter_map(|s| s.path().map(|p| p.trim_end_matches('/').to_string()))
+                    .collect();
+                for e in &mut entries {
+                    if !e.is_tracked {
+                        e.is_ignored = ignored.contains(&e.rel_path);
+                    }
+                }
+            }
+            Err(e) => {
+                log::warn!("[minigit] 忽略规则批量查询失败 ({}): {}", clean_rel, e);
+                // 查不到就全部按「不忽略」处理，不阻断目录列举
+            }
+        }
     }
 
     Ok(entries)
