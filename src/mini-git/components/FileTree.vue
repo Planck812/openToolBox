@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { RefreshCw, Copy, Check } from 'lucide-vue-next';
+import { RefreshCw, Copy, Check, AlertCircle } from 'lucide-vue-next';
 import { useGitDataStore } from '../stores/gitdata';
 import { useSessionStore } from '../stores/session';
 import { useTabsStore } from '../stores/tabs';
@@ -36,6 +36,7 @@ const contextMenu = ref<{
 });
 
 const copiedTip = ref<string | null>(null);
+const copiedTipOk = ref(true);
 
 // Mapping of relPath -> status flag (M, A, D, U, C)
 const fileStatusMap = computed(() => {
@@ -153,8 +154,9 @@ const closeContextMenu = () => {
   contextMenu.value.entry = null;
 };
 
-const showCopiedFeedback = (tip: string) => {
+const showCopiedFeedback = (tip: string, ok = true) => {
   copiedTip.value = tip;
+  copiedTipOk.value = ok;
   setTimeout(() => {
     if (copiedTip.value === tip) {
       copiedTip.value = null;
@@ -168,7 +170,6 @@ const getRepoBasePath = (): string => {
     sessionStore.currentRepoPath ||
     (route?.query?.path as string) ||
     reposStore.repos.find((r) => r.id === gitData.repoId)?.path ||
-    reposStore.repos[0]?.path ||
     ''
   );
 };
@@ -177,6 +178,11 @@ const copyAbsolutePath = async () => {
   if (!contextMenu.value.entry) return;
   const rel = contextMenu.value.entry.rel_path;
   const basePath = getRepoBasePath();
+  if (!basePath) {
+    showCopiedFeedback('无法确定仓库路径', false);
+    closeContextMenu();
+    return;
+  }
   const fullPath = formatAbsolutePath(basePath, rel);
   const ok = await copyToClipboard(fullPath);
   if (ok) {
@@ -234,7 +240,8 @@ const copyRelativePath = async () => {
       v-if="copiedTip"
       class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-foreground text-background px-2.5 py-1 rounded shadow-md text-[11px] font-sans flex items-center space-x-1.5 z-40 transition-opacity pointer-events-none"
     >
-      <Check class="w-3 h-3 text-emerald-400" />
+      <Check v-if="copiedTipOk" class="w-3 h-3 text-emerald-400" />
+      <AlertCircle v-else class="w-3 h-3 text-amber-400" />
       <span>{{ copiedTip }}</span>
     </div>
 

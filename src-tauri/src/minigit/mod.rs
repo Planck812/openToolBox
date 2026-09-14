@@ -361,12 +361,12 @@ pub async fn mg_unpushed_commits<R: Runtime>(
     webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
-) -> Result<Vec<CommitDetail>, MiniGitError> {
+) -> Result<UnpushedCommits, MiniGitError> {
     guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
-        log::get_unpushed_commits(&repo, 50)
+        log::get_unpushed_commits(&repo, 200)
     })
     .await
     .map_err(|e| MiniGitError::Other(e.to_string()))?

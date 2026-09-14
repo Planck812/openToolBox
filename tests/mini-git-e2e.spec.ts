@@ -265,7 +265,11 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
 
     mockUnpushedCommits.mockResolvedValue({
       status: 'ok',
-      data: [],
+      data: {
+        commits: [],
+        total: 0,
+        truncated: false,
+      },
     });
   };
 
@@ -586,7 +590,7 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     const reposStore = useReposStore();
     const gitDataStore = useGitDataStore();
 
-    reposStore.addRepo('C:/repos/test-repo', 'test-repo');
+    await reposStore.addRepo('C:/repos/test-repo');
     await gitDataStore.openRepo('C:/repos/test-repo');
 
     router.push('/workspace');
@@ -650,28 +654,46 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     setupDefaultMocks();
     mockUnpushedCommits.mockResolvedValue({
       status: 'ok',
-      data: [
-        {
-          oid: '70242f4000000000000000000000000000000000',
-          short_oid: '70242f4',
-          author_name: 'Dev User',
-          author_email: 'dev@example.com',
-          author_time: Math.floor(Date.now() / 1000) - 600,
-          author_tz_offset: 480,
-          committer_name: 'Dev User',
-          committer_email: 'dev@example.com',
-          committer_time: Math.floor(Date.now() / 1000) - 600,
-          committer_tz_offset: 480,
-          message: 'feat: add unpushed commit feature\n\nDetailed message',
-          summary: 'feat: add unpushed commit feature',
-          parent_oids: ['5c6c5ca000000000000000000000000000000000'],
-          is_root: false,
-          is_merge: false,
-          files: [
-            { path: 'src/mini-git/components/GitPanel.vue', status: 'M', additions: 15, deletions: 2 },
-          ],
-        },
-      ],
+      data: {
+        commits: [
+          {
+            oid: '70242f4000000000000000000000000000000000',
+            short_oid: '70242f4',
+            author_name: 'Dev User',
+            author_email: 'dev@example.com',
+            author_time: Math.floor(Date.now() / 1000) - 600,
+            committer_name: 'Dev User',
+            committer_time: Math.floor(Date.now() / 1000) - 600,
+            summary: 'feat: add unpushed commit feature',
+            parent_oids: ['5c6c5ca000000000000000000000000000000000'],
+          },
+        ],
+        total: 1,
+        truncated: false,
+      },
+    });
+    mockCommitDetail.mockResolvedValue({
+      status: 'ok',
+      data: {
+        oid: '70242f4000000000000000000000000000000000',
+        short_oid: '70242f4',
+        author_name: 'Dev User',
+        author_email: 'dev@example.com',
+        author_time: Math.floor(Date.now() / 1000) - 600,
+        author_tz_offset: 480,
+        committer_name: 'Dev User',
+        committer_email: 'dev@example.com',
+        committer_time: Math.floor(Date.now() / 1000) - 600,
+        committer_tz_offset: 480,
+        message: 'feat: add unpushed commit feature\n\nDetailed message',
+        summary: 'feat: add unpushed commit feature',
+        parent_oids: ['5c6c5ca000000000000000000000000000000000'],
+        is_root: false,
+        is_merge: false,
+        files: [
+          { path: 'src/mini-git/components/GitPanel.vue', status: 'M', additions: 15, deletions: 2 },
+        ],
+      },
     });
 
     const reposStore = useReposStore();
@@ -679,7 +701,7 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     const sessionStore = useSessionStore();
     const tabsStore = useTabsStore();
 
-    reposStore.addRepo('C:/repos/test-repo', 'test-repo');
+    await reposStore.addRepo('C:/repos/test-repo');
     await gitDataStore.openRepo('C:/repos/test-repo');
 
     router.push('/workspace');

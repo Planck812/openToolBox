@@ -80,6 +80,14 @@ pub struct CommitSummary {
     pub parent_oids: Vec<String>,
 }
 
+/// 未推送提交列表。`commits` 至多 `limit` 条摘要，`total` 是不受 limit 限制的精确总数。
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct UnpushedCommits {
+    pub commits: Vec<CommitSummary>,
+    pub total: u32,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CommitDetail {
     pub oid: String,

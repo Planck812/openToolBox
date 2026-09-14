@@ -43,11 +43,6 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new() -> Self {
-        // 本模块纯读，不做任何写入；关闭所有权校验以支持只读挂载、
-        // 网络共享与容器绑定挂载下的仓库 (NFR-3.2, AC-8.1)。注意这是进程全局开关。
-        unsafe {
-            let _ = git2::opts::set_verify_owner_validation(false);
-        }
         Self {
             sessions: Mutex::new(HashMap::new()),
             walks: Mutex::new(HashMap::new()),
@@ -210,7 +205,7 @@ impl SessionManager {
 
             let start = walk.current_offset;
             let end = (start + limit).min(walk.oids.len());
-            let slice = walk.oids[start..end].to_vec();
+            let slice = walk.oids.get(start..end).unwrap_or_default().to_vec();
             walk.current_offset = end;
             (
                 walk.repo_path.clone(),

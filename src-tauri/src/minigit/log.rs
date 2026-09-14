@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use git2::{Commit, Oid, Repository, Revwalk, Sort};
 use super::error::MiniGitError;
-use super::types::{ChangedFile, CommitDetail, CommitSummary, LogFilter, LogPage, SearchProgress, SearchQuery};
+use super::types::{ChangedFile, CommitDetail, CommitSummary, LogFilter, LogPage, SearchProgress, SearchQuery, UnpushedCommits};
 
 pub struct CommitWalker<'a> {
     walk: Revwalk<'a>,
@@ -371,15 +371,15 @@ pub fn search_commits(
 pub fn get_unpushed_commits(
     repo: &Repository,
     limit: usize,
-) -> Result<Vec<CommitDetail>, MiniGitError> {
+) -> Result<UnpushedCommits, MiniGitError> {
     let head = match repo.head() {
         Ok(h) => h,
-        Err(_) => return Ok(Vec::new()),
+        Err(_) => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false }),
     };
 
     let head_oid = match head.target() {
         Some(oid) => oid,
-        None => return Ok(Vec::new()),
+        None => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false }),
     };
 
     let mut revwalk = repo
@@ -441,23 +441,28 @@ pub fn get_unpushed_commits(
 
     // If repository has no remotes and no upstream at all, return empty list
     if !has_remote_or_upstream {
-        return Ok(Vec::new());
+        return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false });
     }
 
-    let mut unpushed = Vec::new();
+    let mut commits = Vec::new();
+    let mut total: u32 = 0;
+
     for oid_res in revwalk {
-        if unpushed.len() >= limit {
-            break;
-        }
         let oid = match oid_res {
             Ok(id) => id,
             Err(_) => break,
         };
-        if let Ok(detail) = get_commit_detail(repo, &oid.to_string()) {
-            unpushed.push(detail);
+        total = total.saturating_add(1);
+        // 超过 limit 后只继续计数，不再构造摘要
+        if commits.len() >= limit {
+            continue;
+        }
+        if let Ok(commit) = repo.find_commit(oid) {
+            commits.push(commit_to_summary(&commit));
         }
     }
 
-    Ok(unpushed)
+    let truncated = total as usize > commits.len();
+    Ok(UnpushedCommits { commits, total, truncated })
 }
 

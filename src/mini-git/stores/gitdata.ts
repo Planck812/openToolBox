@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia';
 import type {
+  ChangedFile,
   CommitDetail,
   CommitSummary,
   Refs,
   RepoState,
   TreeEntry,
+  UnpushedCommits,
   WorkingStatus,
 } from '@/lib/ipc/bindings';
 import { buildRefsTree, type RefTreeNode } from '../lib/refsGrouping';
@@ -18,8 +20,11 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
     workingStatus: null as WorkingStatus | null,
     refs: null as Refs | null,
     refsTree: [] as RefTreeNode[],
-    unpushedCommits: [] as CommitDetail[],
-    isLoadingUnpushed: false,
+    unpushedCommits: [] as CommitSummary[],
+    unpushedTotal: 0,
+    unpushedTruncated: false,
+    // oid -> 该提交的改动文件列表，按需加载
+    unpushedFiles: new Map<string, ChangedFile[]>(),
 
     // File tree cache: relPath -> TreeEntry[]
     treeCache: new Map<string, TreeEntry[]>(),
@@ -105,6 +110,9 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       this.refs = null;
       this.refsTree = [];
       this.unpushedCommits = [];
+      this.unpushedTotal = 0;
+      this.unpushedTruncated = false;
+      this.unpushedFiles.clear();
       this.treeCache.clear();
       this.commits = [];
       this.walkId = null;
@@ -119,10 +127,15 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
         const prevChanges = this.workingStatus?.total_changes;
         const [status, unpushed] = await Promise.all([
           gitIpc.status(this.repoId),
-          gitIpc.unpushedCommits(this.repoId).catch(() => [] as CommitDetail[]),
+          gitIpc.unpushedCommits(this.repoId).catch(
+            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false })
+          ),
         ]);
         this.workingStatus = status;
-        this.unpushedCommits = unpushed;
+        this.unpushedCommits = unpushed.commits;
+        this.unpushedTotal = unpushed.total;
+        this.unpushedTruncated = unpushed.truncated;
+        this.pruneUnpushedFiles();
         this.lastStatusRefreshTime = Date.now();
 
         if (prevChanges !== undefined && prevChanges !== status.total_changes) {
@@ -136,16 +149,23 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       }
     },
 
-    async refreshUnpushedCommits() {
-      if (!this.repoId) return;
-      this.isLoadingUnpushed = true;
+    // 提交内容按 oid 不可变，缓存无需失效；只丢掉已不在列表里的条目，防止无限增长。
+    // 不能整体 clear：已展开的提交会因缓存被清而卡在「加载中」——没人会再触发加载。
+    pruneUnpushedFiles() {
+      const alive = new Set(this.unpushedCommits.map((c) => c.oid));
+      for (const oid of this.unpushedFiles.keys()) {
+        if (!alive.has(oid)) this.unpushedFiles.delete(oid);
+      }
+    },
+
+    async loadUnpushedCommitFiles(oid: string) {
+      if (!this.repoId || this.unpushedFiles.has(oid)) return;
       try {
-        this.unpushedCommits = await gitIpc.unpushedCommits(this.repoId);
+        const detail = await gitIpc.commitDetail(this.repoId, oid);
+        this.unpushedFiles.set(oid, detail.files);
       } catch (e) {
-        console.error('Failed to refresh unpushed commits', e);
-        this.unpushedCommits = [];
-      } finally {
-        this.isLoadingUnpushed = false;
+        console.error('Failed to load unpushed commit files', e);
+        this.unpushedFiles.set(oid, []);
       }
     },
 
@@ -157,13 +177,18 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
           gitIpc.getRepoState(this.repoId),
           gitIpc.listRefs(this.repoId),
           gitIpc.status(this.repoId),
-          gitIpc.unpushedCommits(this.repoId).catch(() => [] as CommitDetail[]),
+          gitIpc.unpushedCommits(this.repoId).catch(
+            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false })
+          ),
         ]);
 
         this.repoState = state;
         this.refs = refs;
         this.workingStatus = status;
-        this.unpushedCommits = unpushed;
+        this.unpushedCommits = unpushed.commits;
+        this.unpushedTotal = unpushed.total;
+        this.unpushedTruncated = unpushed.truncated;
+        this.pruneUnpushedFiles();
         this.lastStatusRefreshTime = Date.now();
         this.refsTree = buildRefsTree(refs, {
           head_name: state.head_name,

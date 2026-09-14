@@ -41,8 +41,11 @@ const toggleUnpushedCommitFiles = (oid: string) => {
     expandedUnpushedCommits.value.delete(oid);
   } else {
     expandedUnpushedCommits.value.add(oid);
+    gitData.loadUnpushedCommitFiles(oid);
   }
 };
+
+const unpushedFilesOf = (oid: string) => gitData.unpushedFiles.get(oid);
 
 const navigateToHistoryCommit = async (oid: string) => {
   sessionStore.activeGitTab = 'history';
@@ -173,10 +176,10 @@ const formatDate = (epochSec: number) => {
           <span
             v-if="gitData.unpushedCommits.length > 0"
             class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center space-x-0.5"
-            :title="`有 ${gitData.unpushedCommits.length} 个已提交未推送`"
+            :title="`有 ${gitData.unpushedTotal} 个已提交未推送`"
           >
             <ArrowUp class="w-2.5 h-2.5" />
-            <span>{{ gitData.unpushedCommits.length }}</span>
+            <span>{{ gitData.unpushedTotal }}</span>
           </span>
         </button>
 
@@ -224,7 +227,7 @@ const formatDate = (epochSec: number) => {
           >
             <span>·</span>
             <ArrowUp class="w-3 h-3" />
-            <span>{{ gitData.unpushedCommits.length }} 个已提交未推送</span>
+            <span>{{ gitData.unpushedTotal }} 个已提交未推送</span>
           </span>
         </div>
         <button
@@ -264,7 +267,7 @@ const formatDate = (epochSec: number) => {
           >
             <div class="flex items-center space-x-1.5">
               <ArrowUpCircle class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-              <span>已提交未推送 ({{ gitData.unpushedCommits.length }})</span>
+              <span>已提交未推送 ({{ gitData.unpushedTotal }})</span>
             </div>
             <div class="flex items-center space-x-2">
               <span class="text-[10px] text-muted-foreground font-normal">点击展开查看改动</span>
@@ -321,31 +324,40 @@ const formatDate = (epochSec: number) => {
                 v-if="expandedUnpushedCommits.has(commit.oid)"
                 class="mt-1 pl-4 pr-1 py-1 border-l-2 border-indigo-500/30 ml-2 space-y-0.5 font-mono text-[11px]"
               >
-                <div v-if="commit.files.length === 0" class="text-muted-foreground/60 italic text-[10px]">
+                <div v-if="unpushedFilesOf(commit.oid) === undefined" class="text-muted-foreground/60 italic text-[10px]">
+                  加载中…
+                </div>
+                <div v-else-if="unpushedFilesOf(commit.oid)?.length === 0" class="text-muted-foreground/60 italic text-[10px]">
                   (无文件变动或为空提交)
                 </div>
-                <div
-                  v-for="file in commit.files"
-                  :key="file.path"
-                  class="flex items-center justify-between px-1.5 py-0.5 rounded hover:bg-muted/60 cursor-pointer transition-colors"
-                  title="点击查看此文件改动"
-                  @click="openCommitFileDiff(file, commit.oid, false)"
-                  @dblclick="openCommitFileDiff(file, commit.oid, true)"
-                >
-                  <span class="truncate text-foreground/90 flex-1">{{ file.path }}</span>
-                  <span
-                    class="font-bold text-[10px] px-1 rounded flex-shrink-0 ml-2"
-                    :class="{
-                      'text-emerald-500': file.status === 'A',
-                      'text-amber-500': file.status === 'M',
-                      'text-rose-500': file.status === 'D',
-                      'text-sky-500': file.status === 'R',
-                    }"
+                <template v-else>
+                  <div
+                    v-for="file in unpushedFilesOf(commit.oid)"
+                    :key="file.path"
+                    class="flex items-center justify-between px-1.5 py-0.5 rounded hover:bg-muted/60 cursor-pointer transition-colors"
+                    title="点击查看此文件改动"
+                    @click="openCommitFileDiff(file, commit.oid, false)"
+                    @dblclick="openCommitFileDiff(file, commit.oid, true)"
                   >
-                    {{ file.status }}
-                  </span>
-                </div>
+                    <span class="truncate text-foreground/90 flex-1">{{ file.path }}</span>
+                    <span
+                      class="font-bold text-[10px] px-1 rounded flex-shrink-0 ml-2"
+                      :class="{
+                        'text-emerald-500': file.status === 'A',
+                        'text-amber-500': file.status === 'M',
+                        'text-rose-500': file.status === 'D',
+                        'text-sky-500': file.status === 'R',
+                      }"
+                    >
+                      {{ file.status }}
+                    </span>
+                  </div>
+                </template>
               </div>
+            </div>
+
+            <div v-if="gitData.unpushedTruncated" class="px-2.5 py-1.5 text-[10px] text-muted-foreground italic">
+              仅显示前 {{ gitData.unpushedCommits.length }} 条，共 {{ gitData.unpushedTotal }} 条
             </div>
           </div>
         </div>
