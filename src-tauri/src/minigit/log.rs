@@ -372,14 +372,16 @@ pub fn get_unpushed_commits(
     repo: &Repository,
     limit: usize,
 ) -> Result<UnpushedCommits, MiniGitError> {
+    let mut basis: Option<String> = None;
+
     let head = match repo.head() {
         Ok(h) => h,
-        Err(_) => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false }),
+        Err(_) => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false, basis: None }),
     };
 
     let head_oid = match head.target() {
         Some(oid) => oid,
-        None => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false }),
+        None => return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false, basis: None }),
     };
 
     let mut revwalk = repo
@@ -402,6 +404,7 @@ pub fn get_unpushed_commits(
                     if let Some(target) = upstream.get().target() {
                         let _ = revwalk.hide(target);
                         has_remote_or_upstream = true;
+                        basis = upstream.name().ok().flatten().map(|s| s.to_string());
                     }
                 }
             }
@@ -413,13 +416,21 @@ pub fn get_unpushed_commits(
         let mut found_matching_remote = false;
         if let Some(branch_name) = head.shorthand() {
             if let Ok(remotes) = repo.remotes() {
-                for remote_name in remotes.iter().flatten() {
+                // 多个远端有同名分支时只以其中一个为基准，优先 origin。
+                // 原实现把所有同名远端分支都 hide，会把「只推到 fork、没推到 origin」
+                // 的提交误判为已推送。
+                let mut names: Vec<String> = remotes.iter().flatten().map(|s| s.to_string()).collect();
+                names.sort_by(|a, b| (a != "origin").cmp(&(b != "origin")).then_with(|| a.cmp(b)));
+
+                for remote_name in names {
                     let remote_ref = format!("refs/remotes/{}/{}", remote_name, branch_name);
                     if let Ok(r) = repo.find_reference(&remote_ref) {
                         if let Some(target) = r.target() {
                             let _ = revwalk.hide(target);
                             found_matching_remote = true;
                             has_remote_or_upstream = true;
+                            basis = Some(format!("{}/{}", remote_name, branch_name));
+                            break;   // 只以第一个（优先 origin）为基准
                         }
                     }
                 }
@@ -433,6 +444,7 @@ pub fn get_unpushed_commits(
                     if let Some(target) = r.target() {
                         let _ = revwalk.hide(target);
                         has_remote_or_upstream = true;
+                        basis = Some("所有远端分支".to_string());
                     }
                 }
             }
@@ -441,7 +453,7 @@ pub fn get_unpushed_commits(
 
     // If repository has no remotes and no upstream at all, return empty list
     if !has_remote_or_upstream {
-        return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false });
+        return Ok(UnpushedCommits { commits: Vec::new(), total: 0, truncated: false, basis: None });
     }
 
     let mut commits = Vec::new();
@@ -463,6 +475,6 @@ pub fn get_unpushed_commits(
     }
 
     let truncated = total as usize > commits.len();
-    Ok(UnpushedCommits { commits, total, truncated })
+    Ok(UnpushedCommits { commits, total, truncated, basis })
 }
 

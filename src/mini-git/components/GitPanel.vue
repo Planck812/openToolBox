@@ -268,6 +268,13 @@ const formatDate = (epochSec: number) => {
             <div class="flex items-center space-x-1.5">
               <ArrowUpCircle class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
               <span>已提交未推送 ({{ gitData.unpushedTotal }})</span>
+              <span
+                v-if="gitData.unpushedBasis"
+                class="text-[10px] text-muted-foreground font-normal"
+                :title="`与 ${gitData.unpushedBasis} 比较得出`"
+              >
+                相对 {{ gitData.unpushedBasis }}
+              </span>
             </div>
             <div class="flex items-center space-x-2">
               <span class="text-[10px] text-muted-foreground font-normal">点击展开查看改动</span>

@@ -1002,6 +1002,8 @@ export type UnpushedCommits = {
 	commits: CommitSummary[],
 	total: number,
 	truncated: boolean,
+	/**  比较基准的可读描述，如 "origin/main" 或 "所有远端分支"；无远端可比时为 None。 */
+	basis: string | null,
 };
 
 export type WorkingStatus = {

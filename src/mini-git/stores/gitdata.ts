@@ -23,6 +23,7 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
     unpushedCommits: [] as CommitSummary[],
     unpushedTotal: 0,
     unpushedTruncated: false,
+    unpushedBasis: null as string | null,
     // oid -> 该提交的改动文件列表，按需加载
     unpushedFiles: new Map<string, ChangedFile[]>(),
 
@@ -112,6 +113,7 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
       this.unpushedCommits = [];
       this.unpushedTotal = 0;
       this.unpushedTruncated = false;
+      this.unpushedBasis = null;
       this.unpushedFiles.clear();
       this.treeCache.clear();
       this.commits = [];
@@ -128,13 +130,14 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
         const [status, unpushed] = await Promise.all([
           gitIpc.status(this.repoId),
           gitIpc.unpushedCommits(this.repoId).catch(
-            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false })
+            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false, basis: null })
           ),
         ]);
         this.workingStatus = status;
         this.unpushedCommits = unpushed.commits;
         this.unpushedTotal = unpushed.total;
         this.unpushedTruncated = unpushed.truncated;
+        this.unpushedBasis = unpushed.basis;
         this.pruneUnpushedFiles();
         this.lastStatusRefreshTime = Date.now();
 
@@ -178,7 +181,7 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
           gitIpc.listRefs(this.repoId),
           gitIpc.status(this.repoId),
           gitIpc.unpushedCommits(this.repoId).catch(
-            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false })
+            (): UnpushedCommits => ({ commits: [], total: 0, truncated: false, basis: null })
           ),
         ]);
 
@@ -188,6 +191,7 @@ export const useGitDataStore = defineStore('minigit-gitdata', {
         this.unpushedCommits = unpushed.commits;
         this.unpushedTotal = unpushed.total;
         this.unpushedTruncated = unpushed.truncated;
+        this.unpushedBasis = unpushed.basis;
         this.pruneUnpushedFiles();
         this.lastStatusRefreshTime = Date.now();
         this.refsTree = buildRefsTree(refs, {

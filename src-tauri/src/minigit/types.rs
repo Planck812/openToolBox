@@ -86,6 +86,8 @@ pub struct UnpushedCommits {
     pub commits: Vec<CommitSummary>,
     pub total: u32,
     pub truncated: bool,
+    /// 比较基准的可读描述，如 "origin/main" 或 "所有远端分支"；无远端可比时为 None。
+    pub basis: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
