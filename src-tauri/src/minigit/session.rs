@@ -1,3 +1,8 @@
+#![cfg_attr(not(test), deny(
+    clippy::unwrap_used, clippy::expect_used, clippy::panic,
+    clippy::indexing_slicing, clippy::todo, clippy::unimplemented
+))]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,11 +43,28 @@ pub struct SessionManager {
 
 impl SessionManager {
     pub fn new() -> Self {
+        // 本模块纯读，不做任何写入；关闭所有权校验以支持只读挂载、
+        // 网络共享与容器绑定挂载下的仓库 (NFR-3.2, AC-8.1)。注意这是进程全局开关。
+        unsafe {
+            let _ = git2::opts::set_verify_owner_validation(false);
+        }
         Self {
             sessions: Mutex::new(HashMap::new()),
             walks: Mutex::new(HashMap::new()),
             searches: Mutex::new(HashMap::new()),
         }
+    }
+
+    fn lock_sessions(&self) -> std::sync::MutexGuard<'_, HashMap<String, RepoSession>> {
+        self.sessions.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_walks(&self) -> std::sync::MutexGuard<'_, HashMap<String, ActiveWalk>> {
+        self.walks.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn lock_searches(&self) -> std::sync::MutexGuard<'_, HashMap<String, ActiveSearch>> {
+        self.searches.lock().unwrap_or_else(|p| p.into_inner())
     }
 
     pub fn open_session(&self, path_str: &str) -> Result<String, MiniGitError> {
@@ -62,7 +84,7 @@ impl SessionManager {
             .map_err(|_| MiniGitError::NotGitRepo("该目录不是 Git 仓库".to_string()))?;
 
         let repo_id = uuid::Uuid::new_v4().to_string();
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.lock_sessions();
 
         // Max 3 sessions: evict oldest
         if sessions.len() >= 3 {
@@ -88,18 +110,18 @@ impl SessionManager {
     }
 
     pub fn close_session(&self, repo_id: &str) {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.lock_sessions();
         sessions.remove(repo_id);
 
-        let mut walks = self.walks.lock().unwrap();
+        let mut walks = self.lock_walks();
         walks.retain(|id, _| !id.starts_with(repo_id));
 
-        let mut searches = self.searches.lock().unwrap();
+        let mut searches = self.lock_searches();
         searches.retain(|id, _| !id.starts_with(repo_id));
     }
 
     pub fn get_repo_path(&self, repo_id: &str) -> Result<PathBuf, MiniGitError> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.lock_sessions();
         let session = sessions
             .get_mut(repo_id)
             .ok_or_else(|| MiniGitError::SessionNotFound("仓库会话已过期或不存在".to_string()))?;
@@ -149,7 +171,7 @@ impl SessionManager {
         }
 
         let walk_id = format!("{}:{}", repo_id, uuid::Uuid::new_v4());
-        let mut walks = self.walks.lock().unwrap();
+        let mut walks = self.lock_walks();
 
         // Max 4 walks per session
         let session_walks_count = walks.iter().filter(|(k, _)| k.starts_with(repo_id)).count();
@@ -180,7 +202,7 @@ impl SessionManager {
 
     pub fn next_walk_page(&self, walk_id: &str, limit: usize) -> Result<LogPage, MiniGitError> {
         let (path, filter, oids_slice, offset, total_traversed) = {
-            let mut walks = self.walks.lock().unwrap();
+            let mut walks = self.lock_walks();
             let walk = walks
                 .get_mut(walk_id)
                 .ok_or_else(|| MiniGitError::CursorNotFound("游标已过期或不存在".to_string()))?;
@@ -234,7 +256,7 @@ impl SessionManager {
     }
 
     pub fn close_walk(&self, walk_id: &str) {
-        let mut walks = self.walks.lock().unwrap();
+        let mut walks = self.lock_walks();
         walks.remove(walk_id);
     }
 
@@ -251,7 +273,7 @@ impl SessionManager {
 
         let progress = super::log::search_commits(&repo, query, cancel_clone, 500, 50, 0)?;
 
-        let mut searches = self.searches.lock().unwrap();
+        let mut searches = self.lock_searches();
         searches.insert(
             search_id.clone(),
             ActiveSearch {
@@ -268,7 +290,7 @@ impl SessionManager {
     }
 
     pub fn poll_search(&self, search_id: &str) -> Result<SearchProgress, MiniGitError> {
-        let mut searches = self.searches.lock().unwrap();
+        let mut searches = self.lock_searches();
         let search = searches
             .get_mut(search_id)
             .ok_or_else(|| MiniGitError::Other("搜索任务不存在".to_string()))?;
@@ -284,7 +306,7 @@ impl SessionManager {
     }
 
     pub fn cancel_search(&self, search_id: &str) {
-        let mut searches = self.searches.lock().unwrap();
+        let mut searches = self.lock_searches();
         if let Some(search) = searches.get_mut(search_id) {
             search.cancel_flag.store(true, Ordering::Relaxed);
         }

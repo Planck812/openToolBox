@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { RefreshCw, Copy, Check } from 'lucide-vue-next';
 import { useGitDataStore } from '../stores/gitdata';
 import { useSessionStore } from '../stores/session';
 import { useTabsStore } from '../stores/tabs';
+import { useReposStore } from '../stores/repos';
 import { compareTreeEntries } from '../lib/naturalSort';
+import { formatAbsolutePath, copyToClipboard } from '../lib/pathUtils';
 import FileTreeNode from './FileTreeNode.vue';
 import type { TreeEntry } from '@/lib/ipc/bindings';
 
+const route = useRoute();
 const gitData = useGitDataStore();
 const sessionStore = useSessionStore();
 const tabsStore = useTabsStore();
+const reposStore = useReposStore();
 
 // Loaded children cache: relPath -> TreeEntry[]
 const childrenMap = ref(new Map<string, TreeEntry[]>());
@@ -157,27 +162,36 @@ const showCopiedFeedback = (tip: string) => {
   }, 1500);
 };
 
+const getRepoBasePath = (): string => {
+  return (
+    gitData.repoPath ||
+    sessionStore.currentRepoPath ||
+    (route?.query?.path as string) ||
+    reposStore.repos.find((r) => r.id === gitData.repoId)?.path ||
+    reposStore.repos[0]?.path ||
+    ''
+  );
+};
+
 const copyAbsolutePath = async () => {
   if (!contextMenu.value.entry) return;
   const rel = contextMenu.value.entry.rel_path;
-  const isWin = gitData.repoPath.includes('\\');
-  const fullPath = isWin
-    ? `${gitData.repoPath}\\${rel}`.replace(/\//g, '\\')
-    : `${gitData.repoPath}/${rel}`.replace(/\\/g, '/');
-  try {
-    await navigator.clipboard.writeText(fullPath);
+  const basePath = getRepoBasePath();
+  const fullPath = formatAbsolutePath(basePath, rel);
+  const ok = await copyToClipboard(fullPath);
+  if (ok) {
     showCopiedFeedback('已复制绝对路径');
-  } catch {}
+  }
   closeContextMenu();
 };
 
 const copyRelativePath = async () => {
   if (!contextMenu.value.entry) return;
   const rel = contextMenu.value.entry.rel_path;
-  try {
-    await navigator.clipboard.writeText(rel);
+  const ok = await copyToClipboard(rel);
+  if (ok) {
     showCopiedFeedback('已复制相对路径');
-  } catch {}
+  }
   closeContextMenu();
 };
 </script>

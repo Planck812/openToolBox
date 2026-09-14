@@ -20,6 +20,8 @@
     "core:window:allow-set-title",
     "dialog:allow-open",
     "clipboard-manager:allow-write-text",
-    "clipboard-manager:allow-read-text"
+    "opener:allow-open-path",
+    "opener:allow-open-url",
+    "opener:allow-reveal-item-in-dir"
   ]
 }

@@ -1,6 +1,6 @@
 pub mod commands;
 
-use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 pub fn resident_window_label(tool_id: &str) -> String {
     format!("resident-{}", tool_id)
@@ -38,14 +38,10 @@ pub fn open_resident_window<R: Runtime>(app: &AppHandle<R>, tool_id: &str) -> Re
 
     let window = builder.build().map_err(|e| format!("Failed to create resident window: {}", e))?;
 
-    let window_clone = window.clone();
-    window.on_window_event(move |event| {
-        if let WindowEvent::CloseRequested { api, .. } = event {
-            api.prevent_close();
-            let _ = window_clone.hide();
-        }
-    });
+    // 屏幕适配：根据工作区自动缩放并居中，防止小屏笔记本上贴边/溢出 (B-6 #3)
+    crate::fit_window_to_screen(&window, 1000.0, 600.0);
 
+    // 关闭拦截统一由 lib.rs:761 全局 WindowEvent::CloseRequested 处理，此处不再重复注册 (B-6 #2)
     let _ = window.show();
     let _ = window.set_focus();
 

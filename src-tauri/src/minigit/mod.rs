@@ -10,16 +10,27 @@ pub mod tree;
 pub mod types;
 
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Runtime, State, Webview};
 pub use error::MiniGitError;
 pub use session::SessionManager;
 pub use types::*;
 
 pub type MinigitState = Arc<SessionManager>;
 
+fn guard_minigit_window<R: Runtime>(webview: &Webview<R>) -> Result<(), MiniGitError> {
+    if webview.label() != "mini-git" {
+        return Err(MiniGitError::Other("非法调用来源".into()));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_validate_repo(path: String) -> Result<RepoInfo, MiniGitError> {
+pub async fn mg_validate_repo<R: Runtime>(
+    webview: Webview<R>,
+    path: String,
+) -> Result<RepoInfo, MiniGitError> {
+    guard_minigit_window(&webview)?;
     tauri::async_runtime::spawn_blocking(move || repo::validate_repo(&path))
         .await
         .map_err(|e| MiniGitError::Other(e.to_string()))?
@@ -27,10 +38,12 @@ pub async fn mg_validate_repo(path: String) -> Result<RepoInfo, MiniGitError> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_open_session(
+pub async fn mg_open_session<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     path: String,
 ) -> Result<String, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || state_clone.open_session(&path))
         .await
@@ -39,10 +52,12 @@ pub async fn mg_open_session(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_close_session(
+pub async fn mg_close_session<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<(), MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         state_clone.close_session(&repo_id);
@@ -54,10 +69,12 @@ pub async fn mg_close_session(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_repo_state(
+pub async fn mg_repo_state<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<RepoState, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -69,11 +86,13 @@ pub async fn mg_repo_state(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_list_dir(
+pub async fn mg_list_dir<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     rel_path: String,
 ) -> Result<Vec<TreeEntry>, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -85,10 +104,12 @@ pub async fn mg_list_dir(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_list_tracked_files(
+pub async fn mg_list_tracked_files<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<Vec<String>, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -100,11 +121,13 @@ pub async fn mg_list_tracked_files(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_read_file_meta(
+pub async fn mg_read_file_meta<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     rel_path: String,
 ) -> Result<FileMeta, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -116,11 +139,13 @@ pub async fn mg_read_file_meta(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_read_file_content(
+pub async fn mg_read_file_content<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     rel_path: String,
 ) -> Result<String, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -132,12 +157,14 @@ pub async fn mg_read_file_content(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_read_blob_content(
+pub async fn mg_read_blob_content<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     oid: String,
     rel_path: String,
 ) -> Result<String, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -149,10 +176,12 @@ pub async fn mg_read_blob_content(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_list_refs(
+pub async fn mg_list_refs<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<Refs, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -164,10 +193,12 @@ pub async fn mg_list_refs(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_has_changes(
+pub async fn mg_has_changes<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<bool, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -179,11 +210,13 @@ pub async fn mg_has_changes(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_log_open(
+pub async fn mg_log_open<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     filter: LogFilter,
 ) -> Result<String, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || state_clone.open_walk(&repo_id, filter))
         .await
@@ -192,11 +225,13 @@ pub async fn mg_log_open(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_log_next(
+pub async fn mg_log_next<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     walk_id: String,
     limit: usize,
 ) -> Result<LogPage, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || state_clone.next_walk_page(&walk_id, limit))
         .await
@@ -205,10 +240,12 @@ pub async fn mg_log_next(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_log_close(
+pub async fn mg_log_close<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     walk_id: String,
 ) -> Result<(), MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         state_clone.close_walk(&walk_id);
@@ -220,11 +257,13 @@ pub async fn mg_log_close(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_commit_detail(
+pub async fn mg_commit_detail<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     oid: String,
 ) -> Result<CommitDetail, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -236,10 +275,12 @@ pub async fn mg_commit_detail(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_status(
+pub async fn mg_status<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<WorkingStatus, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -251,12 +292,14 @@ pub async fn mg_status(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_diff_prepare(
+pub async fn mg_diff_prepare<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     source: String,
     rel_path: String,
 ) -> Result<DiffPlan, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;
@@ -268,11 +311,13 @@ pub async fn mg_diff_prepare(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_search_start(
+pub async fn mg_search_start<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
     query: SearchQuery,
 ) -> Result<String, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || state_clone.start_search(&repo_id, query))
         .await
@@ -281,10 +326,12 @@ pub async fn mg_search_start(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_search_poll(
+pub async fn mg_search_poll<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     search_id: String,
 ) -> Result<SearchProgress, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || state_clone.poll_search(&search_id))
         .await
@@ -293,10 +340,12 @@ pub async fn mg_search_poll(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_search_cancel(
+pub async fn mg_search_cancel<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     search_id: String,
 ) -> Result<(), MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         state_clone.cancel_search(&search_id);
@@ -308,10 +357,12 @@ pub async fn mg_search_cancel(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn mg_unpushed_commits(
+pub async fn mg_unpushed_commits<R: Runtime>(
+    webview: Webview<R>,
     state: State<'_, MinigitState>,
     repo_id: String,
 ) -> Result<Vec<CommitDetail>, MiniGitError> {
+    guard_minigit_window(&webview)?;
     let state_clone = Arc::clone(&*state);
     tauri::async_runtime::spawn_blocking(move || {
         let repo = state_clone.get_repo(&repo_id)?;

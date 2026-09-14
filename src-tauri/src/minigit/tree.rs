@@ -85,15 +85,11 @@ pub fn list_dir(repo: &Repository, rel_path: &str) -> Result<Vec<TreeEntry>, Min
             }
         }
 
-        // Check if tracked in index
+        // Check if tracked in index (B-5: find_prefix O(log N) 二分查找替代线性扫描)
         let is_tracked = if let Some(idx) = &index {
             if is_dir {
-                // For a directory, check if any tracked file starts with "dir/"
                 let prefix = format!("{}/", normalized_child_rel);
-                idx.iter().any(|e| {
-                    let p = String::from_utf8_lossy(&e.path);
-                    p.starts_with(&prefix)
-                })
+                idx.find_prefix(Path::new(&prefix)).is_ok()
             } else {
                 idx.get_path(Path::new(&normalized_child_rel), 0).is_some()
             }
@@ -101,14 +97,23 @@ pub fn list_dir(repo: &Repository, rel_path: &str) -> Result<Vec<TreeEntry>, Min
             false
         };
 
-        // Check if ignored
-        let check_path = if is_dir {
-            PathBuf::from(format!("{}/", normalized_child_rel))
+        // Check if ignored (B-5: 已跟踪文件/目录绝不作为忽略项处理，避免重复重建规则栈)
+        let is_ignored = if is_tracked {
+            false
         } else {
-            PathBuf::from(&normalized_child_rel)
+            let check_path = if is_dir {
+                PathBuf::from(format!("{}/", normalized_child_rel))
+            } else {
+                PathBuf::from(&normalized_child_rel)
+            };
+            match repo.status_should_ignore(&check_path) {
+                Ok(ignored) => ignored,
+                Err(e) => {
+                    log::warn!("[minigit] 忽略规则检查失败 ({}): {}", check_path.display(), e);
+                    false
+                }
+            }
         };
-
-        let is_ignored = repo.status_should_ignore(&check_path).unwrap_or(false);
 
         entries.push(TreeEntry {
             name: file_name,
