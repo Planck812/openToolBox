@@ -17,6 +17,11 @@ vi.mock('@tauri-apps/api/window', () => ({
   }),
 }));
 
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn().mockResolvedValue(vi.fn()),
+  emit: vi.fn().mockResolvedValue(undefined),
+}));
+
 // 2. Mock IPC commands
 const mockValidateRepo = vi.fn();
 const mockOpenSession = vi.fn();

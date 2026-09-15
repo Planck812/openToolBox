@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit } from '@tauri-apps/api/event';
 import { useAppStore } from '@/store/app';
 import { storeToRefs } from 'pinia';
 import { applyThemeMode, getThemeSkin } from '@/lib/theme';
@@ -84,6 +85,7 @@ onMounted(async () => {
     () => themeMode.value,
     (mode) => {
       applyThemeMode(mode, themeSkinId.value);
+      void emit('theme_changed', { mode: themeMode.value, skinId: themeSkinId.value }).catch(() => {});
     },
     { immediate: true }
   );
@@ -94,6 +96,7 @@ onMounted(async () => {
       applyThemeMode(themeMode.value, skinId);
       const skin = getThemeSkin(skinId);
       logToFile('info', `Theme skin switched to: ${skin.name}`).catch(() => {});
+      void emit('theme_changed', { mode: themeMode.value, skinId: themeSkinId.value }).catch(() => {});
     },
     { immediate: true }
   );

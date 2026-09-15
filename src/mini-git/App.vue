@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { applyThemeMode, type ThemeMode, type ThemeSkinId } from '@/lib/theme';
 import { Minus, Square, X, GitBranch } from 'lucide-vue-next';
 import { useGitDataStore } from './stores/gitdata';
 import { useReposStore } from './stores/repos';
@@ -10,6 +12,7 @@ const router = useRouter();
 const gitData = useGitDataStore();
 const reposStore = useReposStore();
 const appWindow = getCurrentWindow();
+let unlistenTheme: UnlistenFn | null = null;
 
 const title = computed(() => {
   if (!gitData.repoPath) {
@@ -35,6 +38,12 @@ const toggleMaximize = () => appWindow.toggleMaximize();
 const closeWindow = () => appWindow.close();
 
 onMounted(async () => {
+  listen<{ mode: ThemeMode; skinId: ThemeSkinId }>('theme_changed', (e) => {
+    applyThemeMode(e.payload.mode, e.payload.skinId);
+  }).then((fn) => {
+    unlistenTheme = fn;
+  }).catch(() => {});
+
   reposStore.load();
   // Cold start decision (TC-1.31 ~ TC-1.35)
   const sorted = reposStore.sortedRepos;
@@ -50,6 +59,11 @@ onMounted(async () => {
       }
     }
   }
+});
+
+onUnmounted(() => {
+  unlistenTheme?.();
+  unlistenTheme = null;
 });
 </script>
 
