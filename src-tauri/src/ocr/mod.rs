@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use specta::Type;
@@ -30,14 +31,54 @@ pub struct OcrState {
     /// 每个引擎实例再用 `Mutex` 保护：Tesseract 的 `TessBaseAPI` 非线程安全，
     /// 并发识别必须串行化（同一实例被多线程同时操作属未定义行为）。
     engines: Mutex<std::collections::HashMap<String, Arc<Mutex<TesseractAPI>>>>,
+    /// 最近一次取用引擎的时刻，空闲回收据此判定。
+    last_used: Mutex<Instant>,
 }
 
 impl OcrState {
     pub fn new() -> Self {
         Self {
             engines: Mutex::new(std::collections::HashMap::new()),
+            last_used: Mutex::new(Instant::now()),
         }
     }
+}
+
+/// 引擎空闲多久后释放。中文 LSTM 模型常驻内存可达上百 MB，
+/// 而 OCR 是偶发操作——闲置时没有理由一直占着。
+const ENGINE_IDLE_TTL: Duration = Duration::from_secs(300);
+/// 空闲检查周期。
+const REAPER_INTERVAL: Duration = Duration::from_secs(60);
+
+/// 启动引擎空闲回收线程：超过 `ENGINE_IDLE_TTL` 未用就清空引擎缓存。
+///
+/// 清空只是从表里移除 `Arc`：正在识别的线程仍持有自己的那份，识别结束后才真正释放，
+/// 因此回收与进行中的识别互不干扰，代价只是下次识别要重新加载模型（秒级）。
+pub fn spawn_idle_reaper(app: &tauri::AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(REAPER_INTERVAL);
+        let state = app.state::<OcrState>();
+        let idle = match state.last_used.lock() {
+            Ok(t) => t.elapsed(),
+            Err(_) => continue,
+        };
+        if idle < ENGINE_IDLE_TTL {
+            continue;
+        }
+        let Ok(mut engines) = state.engines.lock() else {
+            continue;
+        };
+        if engines.is_empty() {
+            continue;
+        }
+        let released = engines.len();
+        engines.clear();
+        log::info!(
+            "[ocr] 空闲 {}s，释放 {released} 个引擎实例",
+            idle.as_secs()
+        );
+    });
 }
 
 /// 单行识别结果（本期仅返回整段文本 + 平均置信度，行级信息预留）。
@@ -313,6 +354,10 @@ fn get_or_init_engine(
     mode: &str,
 ) -> Result<Arc<Mutex<TesseractAPI>>, String> {
     let state = app.state::<OcrState>();
+    // 先记一次使用时刻，避免识别期间被空闲回收线程收走。
+    if let Ok(mut t) = state.last_used.lock() {
+        *t = Instant::now();
+    }
     {
         let guard = state
             .engines

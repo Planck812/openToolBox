@@ -3,7 +3,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import MiniGitApp from './mini-git/App.vue';
 import router from './mini-git/router';
-import i18n from './i18n';
+import i18n, { i18nReady } from './i18n';
 import { installGlobalErrorHandler } from './lib/global-error-handler';
 import './style.css';
 import { applyThemeMode, getThemeSkin, readStoredThemeSkinId } from './lib/theme';
@@ -29,4 +29,5 @@ app.use(pinia);
 app.use(router);
 app.use(i18n);
 
-app.mount('#app');
+// 文案按当前语言异步加载，就绪后再挂载，避免首帧把 key 原样渲染出来。
+void i18nReady.then(() => app.mount('#app'));

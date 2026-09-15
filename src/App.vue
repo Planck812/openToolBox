@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch } from 'vue';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { emit } from '@tauri-apps/api/event';
 import { useAppStore } from '@/store/app';
 import { storeToRefs } from 'pinia';
 import { applyThemeMode, getThemeSkin } from '@/lib/theme';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import { Copy, Maximize2, Minus, Pin, PinOff, X } from 'lucide-vue-next';
-import QuickLaunchRoot from '@/components/QuickLaunchRoot.vue';
 import { logToFile } from '@/lib/logger';
 import { useWindowControls } from '@/composables/useWindowControls';
 import { useAppNavigation } from '@/composables/useAppNavigation';
 import { useShortcutSync } from '@/composables/useShortcutSync';
 import { useGlobalKeyboard } from '@/composables/useGlobalKeyboard';
-import { isTauriEnvironment } from '@/lib/tauri-env';
 
 const store = useAppStore();
 const { t } = useI18n();
-/** 快速唤起小窗口的 SPA 实例：不渲染主窗口 UI，只渲染 QuickLaunchRoot */
-const isQuickLaunchWindow = isTauriEnvironment() && getCurrentWindow().label === 'quicklaunch';
 const { toasts, themeMode, themeSkinId, appBackgroundImage, appBackgroundMode } = storeToRefs(store);
 const DEFAULT_BG_IMAGE = '/backgrounds/landscape-1.jpg';
 
@@ -50,6 +46,41 @@ const {
 const navigation = useAppNavigation({ ensureWindowActivated });
 useShortcutSync({ navigation });
 const { handleKeydown } = useGlobalKeyboard();
+const route = useRoute();
+
+// 工具页缓存空闲释放：KeepAlive 会一直握着最后一个工具实例（CodeMirror、编辑器、
+// 大段文本都在里面），回首页后再不释放。离开工具页超过该时长就清一次缓存。
+const TOOL_CACHE_IDLE_MS = 5 * 60 * 1000;
+const keepAliveInclude = ref<string[]>(['ToolView']);
+let toolCacheTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearToolCacheTimer = () => {
+  if (toolCacheTimer !== null) {
+    clearTimeout(toolCacheTimer);
+    toolCacheTimer = null;
+  }
+};
+
+/** include 置空即卸载已缓存实例；下一帧恢复，之后进入的工具照常被缓存。 */
+const releaseToolCache = async () => {
+  keepAliveInclude.value = [];
+  await nextTick();
+  keepAliveInclude.value = ['ToolView'];
+  logToFile('debug', '[PERF] Idle tool cache released').catch(() => {});
+};
+
+watch(
+  () => route.path,
+  (path) => {
+    clearToolCacheTimer();
+    if (!path.startsWith('/tool/')) {
+      toolCacheTimer = setTimeout(() => {
+        void releaseToolCache();
+      }, TOOL_CACHE_IDLE_MS);
+    }
+  },
+  { immediate: true }
+);
 
 // 帧率监控（开发模式）
 let lastFrameTime = performance.now();
@@ -71,10 +102,6 @@ const monitorFrameRate = () => {
 };
 
 onMounted(async () => {
-  // 快速唤起窗口的实例：跳过主窗口全部初始化（快捷键同步/事件注册等），UI 由 QuickLaunchRoot 承担。
-  if (isQuickLaunchWindow) {
-    return;
-  }
   await logToFile('info', 'App.vue mounted');
   applyThemeMode(themeMode.value, themeSkinId.value);
   document.documentElement.style.setProperty('--app-bg-image', resolveAppBackgroundCssValue());
@@ -116,9 +143,11 @@ onMounted(async () => {
     { immediate: true }
   );
 
-  // 启动帧率监控
-  frameMonitorRunning = true;
-  requestAnimationFrame(monitorFrameRate);
+  // 启动帧率监控（仅开发构建：生产环境让 rAF 回调常驻只是白白耗电）
+  if (import.meta.env.DEV) {
+    frameMonitorRunning = true;
+    requestAnimationFrame(monitorFrameRate);
+  }
 
   await logToFile('info', 'App.vue initialization complete');
   await logToFile('info', '=== End Debug ===');
@@ -128,6 +157,7 @@ onMounted(async () => {
 onUnmounted(() => {
   logToFile('info', 'App.vue unmounting, cleaning up').catch(() => {});
   frameMonitorRunning = false; // 停止帧率监控
+  clearToolCacheTimer();
   window.removeEventListener('keydown', handleKeydown, { capture: true });
   stopWatchThemeMode?.();
   stopWatchThemeMode = null;
@@ -142,9 +172,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <QuickLaunchRoot v-if="isQuickLaunchWindow" />
-  <template v-else>
-    <div class="app-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
+  <div class="app-shell flex h-screen flex-col overflow-hidden bg-background text-foreground">
     <header
       class="app-titlebar"
       @mousedown="handleTitlebarMouseDown"
@@ -217,7 +245,7 @@ onUnmounted(() => {
       <router-view v-slot="{ Component, route: currentRoute }">
         <!-- KeepAlive 常驻包裹：切回首页不再卸载缓存，工具实例状态真实保活。
              仅缓存 ToolView（按 fullPath 区分多个工具实例），其余路由不缓存。 -->
-        <KeepAlive :include="['ToolView']">
+        <KeepAlive :include="keepAliveInclude">
           <component :is="Component" :key="currentRoute.fullPath" />
         </KeepAlive>
       </router-view>
@@ -238,7 +266,6 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
-  </template>
 </template>
 
 <style>

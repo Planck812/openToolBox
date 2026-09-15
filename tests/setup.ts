@@ -14,6 +14,8 @@ vi.mock('vue-i18n', () => ({
 // mock 全局 i18n 实例：逻辑模块（engine/runtime 等）import '@/i18n' 后，测试中
 // i18n.global.t() 返回键本身，断言消息时改为断言键。
 vi.mock('@/i18n', () => ({
+  // 真实模块的语言包是异步加载的，各入口 await 此信号后才挂载；测试里直接就绪。
+  i18nReady: Promise.resolve(),
   default: {
     global: {
       t: (key: string, params?: Record<string, any>) => {
