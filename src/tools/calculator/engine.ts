@@ -33,7 +33,8 @@ type OperatorInfo = {
 };
 
 const MAX_HISTORY = 10;
-const ERROR_MESSAGE = i18n.global.t('tools.calculator.error_message');
+// 同上：取用时再求值。
+const errorMessage = () => i18n.global.t('tools.calculator.error_message');
 const PI_VALUE = Math.PI;
 const SCIENTIFIC_FUNCTIONS = new Set(['sin', 'cos', 'tan', 'sqrt']);
 const OPERATOR_INFO: Record<string, OperatorInfo> = {
@@ -405,7 +406,7 @@ export const createCalculatorEngine = (options: CalculatorEngineOptions = {}) =>
       ].slice(0, MAX_HISTORY);
       return { status: state.status, display: state.display };
     } catch {
-      state.display = ERROR_MESSAGE;
+      state.display = errorMessage();
       state.status = 'error';
       return { status: state.status, display: state.display };
     }

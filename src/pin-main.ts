@@ -6,7 +6,7 @@
  */
 import { createApp } from 'vue';
 import PinWindow from './tools/screenshot-universal/shared/PinWindow.vue';
-import i18n from './i18n';
+import i18n, { i18nReady } from './i18n';
 import { installGlobalErrorHandler } from './lib/global-error-handler';
 
 // 与主入口一致的 polyfill
@@ -19,4 +19,5 @@ const app = createApp(PinWindow);
 app.config.errorHandler = handleError;
 window.addEventListener('unhandledrejection', handleUnhandledRejection);
 app.use(i18n);
-app.mount('#app');
+// 文案按当前语言异步加载，就绪后再挂载，避免首帧把 key 原样渲染出来。
+void i18nReady.then(() => app.mount('#app'));

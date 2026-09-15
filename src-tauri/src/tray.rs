@@ -238,6 +238,7 @@ pub(crate) fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                 "minimize" => {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
+                        crate::trim_working_set();
                     }
                 }
                 #[cfg(screenshot_supported)]

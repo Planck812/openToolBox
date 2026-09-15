@@ -675,6 +675,25 @@ fn fit_main_window_to_screen(app: &tauri::App) {
     }
 }
 
+/// 窗口隐藏到托盘后修剪进程工作集（仅 Windows）。
+///
+/// 隐藏后页面不再绘制，驻留的物理页多半是冷的，`SetProcessWorkingSetSize(-1, -1)`
+/// 请求系统把它们换出——是真实回收，不是读数作弊。延迟两秒执行，等 WebView 走完
+/// 隐藏后的内部释放，修剪才收得干净。
+pub(crate) fn trim_working_set() {
+    #[cfg(windows)]
+    {
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+            // (usize::MAX, usize::MAX) 即 Win32 约定的 (-1, -1)：请求修剪而非设定配额。
+            unsafe {
+                let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+            }
+        });
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = crate::screenshot_universal::register_frame_image_protocol(
@@ -724,6 +743,8 @@ pub fn run() {
             app.manage(crate::screenshot_shared::pin::initialize(app.handle()));
             // OCR 引擎状态：引擎实例首次识别时初始化并缓存；tessdata 目录动态解析。
             app.manage(crate::ocr::OcrState::new());
+            // 引擎闲置 5 分钟后自动释放（LSTM 模型常驻内存可达上百 MB）。
+            crate::ocr::spawn_idle_reaper(app.handle());
             // 便利贴状态。
             app.manage(crate::sticky::StickyState::new());
             crate::sedentary::initialize(app)?;
@@ -752,6 +773,7 @@ pub fn run() {
                     if window.label() == "main" || window.label() == "mini-git" || window.label().starts_with("resident-") {
                         let _ = window.hide();
                         api.prevent_close();
+                        trim_working_set();
                     } else if window.label().starts_with("pin-") {
                         crate::screenshot_shared::pin::cleanup_window_label(window.label());
                     } else {

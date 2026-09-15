@@ -34,13 +34,14 @@ export type ConvertResult = ConvertSuccess | ConvertFailure;
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-const MISSING_DEP_HINT = i18n.global.t('tools.format_convert.engine_missing_dep_hint');
+// 语言包按需异步加载，模块加载时未必已就绪：取用时再求值，避免文案被固化成 key。
+const missingDepHint = () => i18n.global.t('tools.format_convert.engine_missing_dep_hint');
 
 const loadYaml = async () => {
   try {
     return await import('yaml');
   } catch {
-    throw new Error(i18n.global.t('tools.format_convert.yaml_unavailable', { hint: MISSING_DEP_HINT }));
+    throw new Error(i18n.global.t('tools.format_convert.yaml_unavailable', { hint: missingDepHint() }));
   }
 };
 
@@ -48,7 +49,7 @@ const loadToml = async () => {
   try {
     return await import('smol-toml');
   } catch {
-    throw new Error(i18n.global.t('tools.format_convert.toml_unavailable', { hint: MISSING_DEP_HINT }));
+    throw new Error(i18n.global.t('tools.format_convert.toml_unavailable', { hint: missingDepHint() }));
   }
 };
 
@@ -56,7 +57,7 @@ const loadXml = async () => {
   try {
     return await import('fast-xml-parser');
   } catch {
-    throw new Error(i18n.global.t('tools.format_convert.xml_unavailable', { hint: MISSING_DEP_HINT }));
+    throw new Error(i18n.global.t('tools.format_convert.xml_unavailable', { hint: missingDepHint() }));
   }
 };
 
