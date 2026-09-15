@@ -175,7 +175,7 @@ const formatDate = (epochSec: number) => {
           </span>
           <span
             v-if="gitData.unpushedCommits.length > 0"
-            class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center space-x-0.5"
+            class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary/15 text-primary flex items-center space-x-0.5"
             :title="`有 ${gitData.unpushedTotal} 个已提交未推送`"
           >
             <ArrowUp class="w-2.5 h-2.5" />
@@ -223,7 +223,7 @@ const formatDate = (epochSec: number) => {
           <span>共 {{ gitData.totalChanges }} 个变更文件</span>
           <span
             v-if="gitData.unpushedCommits.length > 0"
-            class="text-indigo-600 dark:text-indigo-400 font-medium flex items-center space-x-1"
+            class="text-primary font-medium flex items-center space-x-1"
           >
             <span>·</span>
             <ArrowUp class="w-3 h-3" />
@@ -260,13 +260,13 @@ const formatDate = (epochSec: number) => {
         </div>
 
         <!-- 0. Outgoing Commits (已提交未推送) -->
-        <div v-if="gitData.unpushedCommits.length" class="border border-indigo-500/30 dark:border-indigo-400/30 rounded overflow-hidden shadow-xs">
+        <div v-if="gitData.unpushedCommits.length" class="border border-primary/30 rounded overflow-hidden shadow-xs">
           <div
-            class="bg-indigo-500/10 dark:bg-indigo-500/15 px-2.5 py-1.5 flex items-center justify-between font-medium text-indigo-700 dark:text-indigo-300 cursor-pointer select-none transition-colors hover:bg-indigo-500/15"
+            class="bg-primary/10 px-2.5 py-1.5 flex items-center justify-between font-medium text-primary cursor-pointer select-none transition-colors hover:bg-primary/15"
             @click="unpushedCollapsed = !unpushedCollapsed"
           >
             <div class="flex items-center space-x-1.5">
-              <ArrowUpCircle class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+              <ArrowUpCircle class="w-3.5 h-3.5 text-primary flex-shrink-0" />
               <span>已提交未推送 ({{ gitData.unpushedTotal }})</span>
               <span
                 v-if="gitData.unpushedBasis"
@@ -287,7 +287,7 @@ const formatDate = (epochSec: number) => {
             <div
               v-for="commit in gitData.unpushedCommits"
               :key="commit.oid"
-              class="p-2 space-y-1 hover:bg-muted/20 transition-colors"
+              class="p-2 space-y-1 hover:bg-muted/50 transition-colors"
             >
               <!-- Commit Row -->
               <div class="flex items-center justify-between gap-2">
@@ -304,7 +304,7 @@ const formatDate = (epochSec: number) => {
                     <ChevronDown v-if="expandedUnpushedCommits.has(commit.oid)" class="w-3 h-3" />
                     <ChevronRight v-else class="w-3 h-3" />
                   </button>
-                  <span class="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 font-medium flex-shrink-0">
+                  <span class="font-mono text-[11px] text-primary font-medium flex-shrink-0">
                     {{ commit.short_oid }}
                   </span>
                   <span class="font-medium text-foreground truncate text-[11.5px]" :title="commit.summary">
@@ -329,7 +329,7 @@ const formatDate = (epochSec: number) => {
               <!-- Changed files inside commit -->
               <div
                 v-if="expandedUnpushedCommits.has(commit.oid)"
-                class="mt-1 pl-4 pr-1 py-1 border-l-2 border-indigo-500/30 ml-2 space-y-0.5 font-mono text-[11px]"
+                class="mt-1 pl-4 pr-1 py-1 border-l-2 border-primary/30 ml-2 space-y-0.5 font-mono text-[11px]"
               >
                 <div v-if="unpushedFilesOf(commit.oid) === undefined" class="text-muted-foreground/60 italic text-[10px]">
                   加载中…
@@ -370,9 +370,9 @@ const formatDate = (epochSec: number) => {
         </div>
 
         <!-- 1. Conflicted -->
-        <div v-if="gitData.workingStatus?.conflicted.length" class="border border-red-500/30 rounded overflow-hidden">
+        <div v-if="gitData.workingStatus?.conflicted.length" class="border border-destructive/30 rounded overflow-hidden">
           <div
-            class="bg-red-500/10 px-2 py-1 flex items-center justify-between font-medium text-red-600 dark:text-red-400 cursor-pointer"
+            class="bg-destructive/10 px-2 py-1 flex items-center justify-between font-medium text-destructive cursor-pointer"
             @click="conflictedCollapsed = !conflictedCollapsed"
           >
             <span>冲突文件 ({{ gitData.workingStatus.conflicted.length }})</span>
@@ -383,12 +383,12 @@ const formatDate = (epochSec: number) => {
             <div
               v-for="file in gitData.workingStatus.conflicted"
               :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/40 cursor-pointer"
+              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
               @click="openChangedFileDiff(file, false)"
               @dblclick="openChangedFileDiff(file, true)"
             >
               <span class="truncate">{{ file.path }}</span>
-              <span class="text-red-500 font-bold">C</span>
+              <span class="text-destructive font-bold">C</span>
             </div>
           </div>
         </div>
@@ -407,7 +407,7 @@ const formatDate = (epochSec: number) => {
             <div
               v-for="file in gitData.workingStatus.staged"
               :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/40 cursor-pointer"
+              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
               @click="openChangedFileDiff(file, false)"
               @dblclick="openChangedFileDiff(file, true)"
             >
@@ -431,7 +431,7 @@ const formatDate = (epochSec: number) => {
             <div
               v-for="file in gitData.workingStatus.unstaged"
               :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/40 cursor-pointer"
+              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
               @click="openChangedFileDiff(file, false)"
               @dblclick="openChangedFileDiff(file, true)"
             >
@@ -455,7 +455,7 @@ const formatDate = (epochSec: number) => {
             <div
               v-for="file in gitData.workingStatus.untracked"
               :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/40 cursor-pointer"
+              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
               @click="openChangedFileDiff(file, false)"
               @dblclick="openChangedFileDiff(file, true)"
             >

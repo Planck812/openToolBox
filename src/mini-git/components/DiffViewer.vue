@@ -216,7 +216,7 @@ const openContentViewer = () => {
           class="px-2 py-0.5 rounded text-[11px] flex items-center space-x-1 transition-colors border"
           :class="[
             isReviewed
-              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+              ? 'bg-primary/10 text-primary border-primary/30'
               : 'hover:bg-muted text-muted-foreground border-border/70'
           ]"
           @click="markReviewed"
@@ -325,7 +325,7 @@ const openContentViewer = () => {
               <tr
                 v-for="subRow in row.foldInfo?.hiddenRows"
                 :key="subRow.id"
-                class="hover:bg-muted/20"
+                class="hover:bg-muted/50"
               >
                 <td class="text-right pr-2 text-muted-foreground/60 select-none border-r border-border/50">
                   {{ subRow.left.lineno }}

@@ -83,7 +83,7 @@ const isLoading = computed(() => {
           'text-emerald-500': fileStatusMap.get(entry.rel_path) === 'A',
           'text-rose-500': fileStatusMap.get(entry.rel_path) === 'D',
           'text-sky-500': fileStatusMap.get(entry.rel_path) === 'U',
-          'text-red-500': fileStatusMap.get(entry.rel_path) === 'C',
+          'text-destructive': fileStatusMap.get(entry.rel_path) === 'C',
         }"
       >
         {{ fileStatusMap.get(entry.rel_path) }}

@@ -193,7 +193,7 @@ const formatTime = (ts: number) => {
         :key="item.repo.id"
         class="group p-3 flex items-center justify-between cursor-pointer transition-colors border-l-4"
         :class="[
-          reposStore.selectedIndex === idx ? 'bg-accent/60' : 'hover:bg-muted/40',
+          reposStore.selectedIndex === idx ? 'bg-accent/60' : 'hover:bg-muted/50',
           !item.repo.isValid ? 'border-l-amber-500 bg-amber-500/5' : 'border-l-transparent'
         ]"
         @click="reposStore.selectedIndex = idx"

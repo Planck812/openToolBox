@@ -214,7 +214,7 @@ const toggleMarkdownMode = () => {
               class="px-2 py-0.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground flex items-center space-x-1 border border-border/60"
               @click="copyContent"
             >
-              <Check v-if="copied" class="w-3 h-3 text-emerald-500" />
+              <Check v-if="copied" class="w-3 h-3 text-primary" />
               <Copy v-else class="w-3 h-3" />
               <span>{{ copied ? '已复制' : '复制内容' }}</span>
             </button>
