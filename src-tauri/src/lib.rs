@@ -685,13 +685,182 @@ pub(crate) fn trim_working_set() {
     {
         std::thread::spawn(|| {
             std::thread::sleep(std::time::Duration::from_secs(2));
-            use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
-            // (usize::MAX, usize::MAX) 即 Win32 约定的 (-1, -1)：请求修剪而非设定配额。
-            unsafe {
-                let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
-            }
+            trim_process_tree();
         });
     }
+}
+
+/// 收集本进程的全部子孙进程 id。
+///
+/// WebView2 的 browser 进程是我们的直接子进程，renderer / gpu / utility 又挂在它下面，
+/// 所以必须递归整棵树，只看一层会漏掉真正占内存的那几个。
+#[cfg(windows)]
+fn descendant_pids(root: u32) -> Vec<u32> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+
+    let mut pairs: Vec<(u32, u32)> = Vec::new(); // (pid, parent_pid)
+    unsafe {
+        let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else {
+            return Vec::new();
+        };
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        if Process32FirstW(snapshot, &mut entry).is_ok() {
+            loop {
+                pairs.push((entry.th32ProcessID, entry.th32ParentProcessID));
+                if Process32NextW(snapshot, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = CloseHandle(snapshot);
+    }
+
+    // 逐层展开。快照是某一瞬间的静态数据，父子关系不会成环，但 pid 可能被回收复用，
+    // 故用 visited 去重兜底，避免极端情况下无限循环。
+    let mut result: Vec<u32> = Vec::new();
+    let mut frontier = vec![root];
+    while let Some(parent) = frontier.pop() {
+        for (pid, ppid) in &pairs {
+            if *ppid == parent && *pid != root && !result.contains(pid) {
+                result.push(*pid);
+                frontier.push(*pid);
+            }
+        }
+    }
+    result
+}
+
+/// 修剪本进程及其全部子孙进程的工作集。
+///
+/// 只修剪自己几乎没有意义：实测主进程工作集仅 7.5 MiB（修剪后 5.1 MiB，回收 2.4 MiB），
+/// 而同一时刻六个 WebView2 子进程合计 126 MiB，修剪后 81 MiB——回收 44.7 MiB。
+/// 内存的大头本来就不在我们这个进程里。子进程由本进程派生、同用户同完整性级别，
+/// 拿 PROCESS_SET_QUOTA 打开即可，实测 6/6 全部成功。
+#[cfg(windows)]
+fn trim_process_tree() {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{
+        GetCurrentProcess, OpenProcess, SetProcessWorkingSetSize, PROCESS_SET_QUOTA,
+    };
+
+    // (usize::MAX, usize::MAX) 即 Win32 约定的 (-1, -1)：请求修剪而非设定配额。
+    unsafe {
+        let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+    }
+
+    let children = descendant_pids(std::process::id());
+    let mut trimmed = 0usize;
+    for pid in &children {
+        unsafe {
+            let Ok(handle) = OpenProcess(PROCESS_SET_QUOTA, false, *pid) else {
+                continue;
+            };
+            if SetProcessWorkingSetSize(handle, usize::MAX, usize::MAX).is_ok() {
+                trimmed += 1;
+            }
+            let _ = CloseHandle(handle);
+        }
+    }
+    log::debug!("[perf] 修剪工作集：本进程 + {trimmed}/{} 个子进程", children.len());
+}
+
+#[cfg(all(test, windows))]
+mod trim_tests {
+    use super::descendant_pids;
+
+    /// 进程树遍历必须能跨越多层：WebView2 的 renderer / gpu 挂在 browser 下面，
+    /// 而 browser 才是我们的直接子进程。只找一层会漏掉真正占内存的那几个，
+    /// 而漏掉的后果是「修剪了但没效果」这种不报错的静默失效。
+    #[test]
+    fn descendant_pids_walks_past_the_first_level() {
+        // cmd 启动一个 ping 作为孙进程：cmd 是我们的子，ping 是 cmd 的子。
+        let mut parent = std::process::Command::new("cmd")
+            .args(["/C", "ping -n 4 127.0.0.1 >nul"])
+            .spawn()
+            .expect("无法启动子进程");
+
+        // 等孙进程起来；ping 启动很快，轮询几次足够。
+        let mut found_grandchild = false;
+        for _ in 0..40 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            let pids = descendant_pids(std::process::id());
+            if pids.contains(&parent.id()) && pids.len() >= 2 {
+                found_grandchild = true;
+                break;
+            }
+        }
+
+        let _ = parent.kill();
+        let _ = parent.wait();
+        assert!(
+            found_grandchild,
+            "descendant_pids 应同时找到子进程与孙进程，实际只找到一层"
+        );
+    }
+
+    #[test]
+    fn descendant_pids_excludes_self() {
+        assert!(!descendant_pids(std::process::id()).contains(&std::process::id()));
+    }
+}
+
+/// 空闲多久后修剪工作集。
+#[cfg(windows)]
+const IDLE_TRIM_AFTER: std::time::Duration = std::time::Duration::from_secs(300);
+/// 前台状态检查周期。
+#[cfg(windows)]
+const IDLE_TRIM_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// 当前系统前台窗口是否属于本进程。
+///
+/// 不走 `WindowEvent::Focused` 累计计数：窗口之间切换时 true / false 的到达顺序
+/// 并不保证，窗口在持有焦点时被销毁还可能漏发，计数一旦漂移就会长期失准——偏高则
+/// 永不修剪，偏低则在用户正用着的时候修剪。直接问系统前台窗口是无状态的，每次都对。
+#[cfg(windows)]
+fn app_owns_foreground() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    // 前台窗口为空（如切到桌面）时 pid 保持 0，与本进程 id 不等，自然判为非前台。
+    let mut pid = 0u32;
+    unsafe {
+        GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut pid));
+    }
+    pid == std::process::id()
+}
+
+/// 启动空闲修剪线程。
+///
+/// `trim_working_set` 原本只在「隐藏到托盘」时触发，但常见用法是窗口一直开着、人切去
+/// 别的应用——那条路径一次都不会走，工作集只涨不落。实测 5 个窗口开着不动，WebView2
+/// 工作集会停在 460 MiB 以上。这里补上：失去前台满 `IDLE_TRIM_AFTER` 修剪一次，
+/// 重新拿到前台后才允许下一次，避免整个闲置期里反复修剪。
+pub(crate) fn spawn_idle_trimmer() {
+    #[cfg(windows)]
+    std::thread::spawn(|| {
+        let mut last_foreground = std::time::Instant::now();
+        let mut trimmed = false;
+        loop {
+            std::thread::sleep(IDLE_TRIM_CHECK_INTERVAL);
+            if app_owns_foreground() {
+                last_foreground = std::time::Instant::now();
+                trimmed = false;
+                continue;
+            }
+            let idle = last_foreground.elapsed();
+            if trimmed || idle < IDLE_TRIM_AFTER {
+                continue;
+            }
+            trim_working_set();
+            trimmed = true;
+            log::debug!("[perf] 失去前台 {}s，修剪工作集", idle.as_secs());
+        }
+    });
 }
 
 /// WebView2 启动参数（仅 Windows 生效，其余平台该设置为空操作）。
@@ -767,6 +936,8 @@ pub fn run() {
             app.manage(crate::ocr::OcrState::new());
             // 引擎闲置 5 分钟后自动释放（LSTM 模型常驻内存可达上百 MB）。
             crate::ocr::spawn_idle_reaper(app.handle());
+            // 失去前台一段时间后自动修剪工作集（窗口常开时托盘那条路径走不到）。
+            crate::spawn_idle_trimmer();
             // 便利贴状态。
             app.manage(crate::sticky::StickyState::new());
             crate::sedentary::initialize(app)?;

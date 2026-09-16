@@ -74,6 +74,10 @@ pub fn spawn_idle_reaper(app: &tauri::AppHandle) {
         }
         let released = engines.len();
         engines.clear();
+        drop(engines);
+        // clear() 只是把内存还给分配器，进程工作集不会自己缩回去；LSTM 模型动辄上百 MiB，
+        // 这里补一次修剪，让它真正回到系统。
+        crate::trim_working_set();
         log::info!(
             "[ocr] 空闲 {}s，释放 {released} 个引擎实例",
             idle.as_secs()
