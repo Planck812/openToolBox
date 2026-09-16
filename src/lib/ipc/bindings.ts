@@ -39,6 +39,21 @@ export const commands = {
 	pwdboxLoad: () => typedError<string | null, string>(__TAURI_INVOKE("pwdbox_load")),
 	/**  加密并落盘密码库 JSON 字符串。 */
 	pwdboxSave: (data: string) => typedError<null, string>(__TAURI_INVOKE("pwdbox_save", { data })),
+	/**  解密单条密码字段（查看/复制时调用；调用方须先通过 `pwdbox_authenticate`）。 */
+	pwdboxDecryptField: (cipher: string) => typedError<string, string>(__TAURI_INVOKE("pwdbox_decrypt_field", { cipher })),
+	/**  加密单条密码字段（新增/修改密码时调用）。 */
+	pwdboxEncryptField: (plain: string) => typedError<string, string>(__TAURI_INVOKE("pwdbox_encrypt_field", { plain })),
+	/**
+	 *  预热主密钥：把密钥读入进程缓存，使后续查看/复制无需再访问系统凭据库。
+	 * 
+	 *  供密码夹工具页挂载时调用。系统凭据库的授权交互（macOS 上首次访问会弹出钥匙串
+	 *  授权框）因此发生在**进入工具页**这一步，而不是打断「查看密码」的操作过程 ——
+	 *  把解锁动作放在入口比夹在操作中间更符合直觉。
+	 * 
+	 *  失败不阻断：列出条目本就不需要主密钥（v2 格式），预热失败只是让后续查看密码时
+	 *  再走一次取密钥流程并在那里报错，不影响浏览已有条目。
+	 */
+	pwdboxPrepareKey: () => __TAURI_INVOKE<boolean>("pwdbox_prepare_key"),
 	/**
 	 *  发起系统开机密码 / Windows Hello 身份验证。
 	 *  若当前在 10 分钟免密有效期内，直接返回 `Ok(true)`。
@@ -153,12 +168,12 @@ export const commands = {
 	/**
 	 *  弹窗按钮动作：`got_up` = 已起身（重置计时并关窗）；`snooze` = 稍后（关窗，
 	 *  5 分钟后再次提醒，计时持续累计）。
-	 *  仅 Windows：动作作用于久坐提醒弹窗，该弹窗仅在 Windows 存在。
+	 *  仅支持空闲检测的平台：动作作用于久坐提醒弹窗，该弹窗仅在这些平台上创建。
 	 */
 	sedentaryRemindAction: (action: string) => typedError<null, string>(__TAURI_INVOKE("sedentary_remind_action", { action })),
 	/**
 	 *  总开关（托盘/工具页）。关闭时计时归零并关掉已开弹窗。
-	 *  仅 Windows：开关与空闲检测轮询/弹窗绑定，非 Windows 前端以 `supported: false` 禁用。
+	 *  仅支持空闲检测的平台：开关与空闲检测轮询/弹窗绑定，其余平台前端以 `supported: false` 禁用。
 	 */
 	sedentaryToggle: (enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("sedentary_toggle", { enabled })),
 	/**
@@ -333,6 +348,29 @@ export const commands = {
 	message: string,
 	isError: boolean,
 } | null>("toast_get"),
+	residentOpen: (toolId: string) => typedError<null, string>(__TAURI_INVOKE("resident_open", { toolId })),
+	residentFocus: (toolId: string) => typedError<null, string>(__TAURI_INVOKE("resident_focus", { toolId })),
+	mgValidateRepo: (path: string) => typedError<RepoInfo, MiniGitError>(__TAURI_INVOKE("mg_validate_repo", { path })),
+	mgOpenSession: (path: string) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_open_session", { path })),
+	mgCloseSession: (repoId: string) => typedError<null, MiniGitError>(__TAURI_INVOKE("mg_close_session", { repoId })),
+	mgRepoState: (repoId: string) => typedError<RepoState, MiniGitError>(__TAURI_INVOKE("mg_repo_state", { repoId })),
+	mgListDir: (repoId: string, relPath: string) => typedError<TreeEntry[], MiniGitError>(__TAURI_INVOKE("mg_list_dir", { repoId, relPath })),
+	mgListTrackedFiles: (repoId: string) => typedError<string[], MiniGitError>(__TAURI_INVOKE("mg_list_tracked_files", { repoId })),
+	mgReadFileMeta: (repoId: string, relPath: string) => typedError<FileMeta, MiniGitError>(__TAURI_INVOKE("mg_read_file_meta", { repoId, relPath })),
+	mgReadFileContent: (repoId: string, relPath: string) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_read_file_content", { repoId, relPath })),
+	mgReadBlobContent: (repoId: string, oid: string, relPath: string) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_read_blob_content", { repoId, oid, relPath })),
+	mgListRefs: (repoId: string) => typedError<Refs, MiniGitError>(__TAURI_INVOKE("mg_list_refs", { repoId })),
+	mgHasChanges: (repoId: string) => typedError<boolean, MiniGitError>(__TAURI_INVOKE("mg_has_changes", { repoId })),
+	mgLogOpen: (repoId: string, filter: LogFilter) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_log_open", { repoId, filter })),
+	mgLogNext: (walkId: string, limit: number) => typedError<LogPage, MiniGitError>(__TAURI_INVOKE("mg_log_next", { walkId, limit })),
+	mgLogClose: (walkId: string) => typedError<null, MiniGitError>(__TAURI_INVOKE("mg_log_close", { walkId })),
+	mgCommitDetail: (repoId: string, oid: string) => typedError<CommitDetail, MiniGitError>(__TAURI_INVOKE("mg_commit_detail", { repoId, oid })),
+	mgStatus: (repoId: string) => typedError<WorkingStatus, MiniGitError>(__TAURI_INVOKE("mg_status", { repoId })),
+	mgDiffPrepare: (repoId: string, source: string, relPath: string) => typedError<DiffPlan, MiniGitError>(__TAURI_INVOKE("mg_diff_prepare", { repoId, source, relPath })),
+	mgSearchStart: (repoId: string, query: SearchQuery) => typedError<string, MiniGitError>(__TAURI_INVOKE("mg_search_start", { repoId, query })),
+	mgSearchPoll: (searchId: string) => typedError<SearchProgress, MiniGitError>(__TAURI_INVOKE("mg_search_poll", { searchId })),
+	mgSearchCancel: (searchId: string) => typedError<null, MiniGitError>(__TAURI_INVOKE("mg_search_cancel", { searchId })),
+	mgUnpushedCommits: (repoId: string) => typedError<UnpushedCommits, MiniGitError>(__TAURI_INVOKE("mg_unpushed_commits", { repoId })),
 };
 
 /* Types */
@@ -378,6 +416,47 @@ export type CancelSessionResult = {
 	cancelled: boolean,
 	sessionId: string | null,
 	generation: number | null,
+};
+
+export type ChangedFile = {
+	path: string,
+	old_path: string | null,
+	status: string,
+	staged_status: string | null,
+	unstaged_status: string | null,
+	additions: number,
+	deletions: number,
+};
+
+export type CommitDetail = {
+	oid: string,
+	short_oid: string,
+	author_name: string,
+	author_email: string,
+	author_time: number,
+	author_tz_offset: number,
+	committer_name: string,
+	committer_email: string,
+	committer_time: number,
+	committer_tz_offset: number,
+	message: string,
+	summary: string,
+	parent_oids: string[],
+	is_root: boolean,
+	is_merge: boolean,
+	files: ChangedFile[],
+};
+
+export type CommitSummary = {
+	oid: string,
+	short_oid: string,
+	author_name: string,
+	author_email: string,
+	author_time: number,
+	committer_name: string,
+	committer_time: number,
+	summary: string,
+	parent_oids: string[],
 };
 
 /**  确认结果。 */
@@ -428,6 +507,38 @@ export type DetectedElement = {
 	windowRect: [number, number, number, number] | null,
 };
 
+export type DiffHunk = {
+	old_start: number,
+	old_lines: number,
+	new_start: number,
+	new_lines: number,
+	header: string,
+	lines: DiffLine[],
+};
+
+export type DiffLine = {
+	origin: string,
+	old_lineno: number | null,
+	new_lineno: number | null,
+	content: string,
+};
+
+export type DiffPlan = {
+	tier: string,
+	source: string,
+	rel_path: string,
+	old_content: string | null,
+	new_content: string | null,
+	hunks: DiffHunk[],
+	additions: number,
+	deletions: number,
+	is_binary: boolean,
+	old_size: number,
+	new_size: number,
+	reason: string | null,
+	old_path: string | null,
+};
+
 export type EnvCommandError = {
 	code: string,
 	message: string,
@@ -472,6 +583,15 @@ export type EnvWritePreview = {
 	requiresConfirmation: boolean,
 	targets: EnvTargetPreview[],
 	warnings: string[],
+};
+
+export type FileMeta = {
+	size: number,
+	is_binary: boolean,
+	encoding: string,
+	is_lfs_pointer: boolean,
+	lfs_oid: string | null,
+	lfs_size: number | null,
 };
 
 export type GetEnvResult = {
@@ -550,6 +670,19 @@ export type ListEnvResult = {
 	message: string,
 	warnings?: string[],
 };
+
+export type LogFilter = {
+	refname: string | null,
+	author_contains: string | null,
+};
+
+export type LogPage = {
+	commits: CommitSummary[],
+	has_more: boolean,
+	traversed_count: number,
+};
+
+export type MiniGitError = { code: "NotGitRepo"; message: string } | { code: "NotRepoRoot"; message: string } | { code: "BareRepo"; message: string } | { code: "PathNotFound"; message: string } | { code: "AccessDenied"; message: string } | { code: "MacosPermissionDenied"; message: string } | { code: "RepoCorrupted"; message: string } | { code: "RepoNotFound"; message: string } | { code: "ReadFileFailed"; message: string } | { code: "FileTooLarge"; message: string } | { code: "BinaryFile"; message: string } | { code: "DiffTimeout"; message: string } | { code: "DiffTooLarge"; message: string } | { code: "ListDirFailed"; message: string } | { code: "ShortcutConflict"; message: string } | { code: "ShortcutRegisterFailed"; message: string } | { code: "ConfigSaveFailed"; message: string } | { code: "ConfigCorrupted"; message: string } | { code: "ExternalLinkConfirm"; message: string } | { code: "SessionNotFound"; message: string } | { code: "CursorNotFound"; message: string } | { code: "TaskCancelled"; message: string } | { code: "Other"; message: string };
 
 /**  单行识别结果（本期仅返回整段文本 + 平均置信度，行级信息预留）。 */
 export type OcrLine = {
@@ -697,6 +830,34 @@ export type QuietPeriod = {
 	end: string,
 };
 
+export type RefInfo = {
+	name: string,
+	short_name: string,
+	target_oid: string | null,
+	is_head: boolean,
+	is_tag: boolean,
+};
+
+export type Refs = {
+	local_branches: RefInfo[],
+	remote_branches: RefInfo[],
+	tags: RefInfo[],
+	head: RefInfo | null,
+};
+
+export type RepoInfo = {
+	name: string,
+	path: string,
+	is_valid: boolean,
+};
+
+export type RepoState = {
+	head_oid: string | null,
+	head_name: string | null,
+	is_detached: boolean,
+	state: string,
+};
+
 /**  滚动进度（next 返回）。 */
 export type ScrollProgress = {
 	stitchedHeight: number,
@@ -723,6 +884,20 @@ export type ScrollStopResult = {
 	previewToken: string,
 };
 
+export type SearchProgress = {
+	search_id: string,
+	scanned_count: number,
+	matched_count: number,
+	results: CommitSummary[],
+	is_done: boolean,
+};
+
+export type SearchQuery = {
+	text: string,
+	refname: string | null,
+	author_contains: string | null,
+};
+
 /**  `sedentary_get_config` 返回体。 */
 export type SedentaryGetConfigResponse = {
 	enabled: boolean,
@@ -733,7 +908,7 @@ export type SedentaryGetConfigResponse = {
 	videoEnabled: boolean,
 	/**  提醒视频绝对路径；视频缺失/复制失败时为空串（无视频模式）。 */
 	videoPath: string,
-	/**  当前平台是否支持空闲检测（Windows 为 true）。 */
+	/**  当前平台是否支持空闲检测（Windows / macOS 为 true）。 */
 	supported: boolean,
 	/**  屏蔽时段列表（空 = 不屏蔽）。 */
 	quietPeriods: QuietPeriod[],
@@ -807,8 +982,38 @@ export type TrashReceipt = {
 	deleteAfter: number,
 };
 
+export type TreeEntry = {
+	name: string,
+	rel_path: string,
+	is_dir: boolean,
+	is_submodule: boolean,
+	is_symlink: boolean,
+	symlink_target: string | null,
+	is_ignored: boolean,
+	is_tracked: boolean,
+	size: number,
+};
+
 /**  完成动作。 */
 export type UniversalFinishAction = "copy" | "pin" | "save_as";
+
+/**  未推送提交列表。`commits` 至多 `limit` 条摘要，`total` 是不受 limit 限制的精确总数。 */
+export type UnpushedCommits = {
+	commits: CommitSummary[],
+	total: number,
+	truncated: boolean,
+	/**  比较基准的可读描述，如 "origin/main" 或 "所有远端分支"；无远端可比时为 None。 */
+	basis: string | null,
+};
+
+export type WorkingStatus = {
+	staged: ChangedFile[],
+	unstaged: ChangedFile[],
+	untracked: ChangedFile[],
+	conflicted: ChangedFile[],
+	total_changes: number,
+	is_clean: boolean,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

@@ -262,6 +262,7 @@ fn create_sticky_window<R: Runtime>(
     // +6 进程 / +300MB 峰值），共享环境只多一个 renderer（+1 进程）。原注释称
     // "每个 WebView 必须独立目录，否则第二个起初始化失败"，经探针实测不成立。
     WebviewWindowBuilder::new(app, label.as_str(), url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("便利贴")
         .inner_size(note.width as f64, note.height as f64)
         .position(note.x as f64, note.y as f64)

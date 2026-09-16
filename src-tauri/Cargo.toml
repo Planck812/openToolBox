@@ -44,6 +44,7 @@ aes-gcm = "0.10"
 rand = "0.8"
 base64 = "0.22"
 log = "0.4"
+git2 = { version = "0.20", default-features = false, features = ["vendored-libgit2"] }
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 specta = { version = "=2.0.0-rc.25", features = ["derive", "function"] }
 specta-typescript = "0.0.12"
@@ -70,8 +71,10 @@ winreg = "0.56.0"
 
 [profile.release]
 opt-level = 2
-lto = false
-codegen-units = 16
+# 跨 crate 内联并剔除死代码：二进制更小，Windows 上映像页也计入工作集。
+# 代价是 release 编译变慢（codegen-units = 1 单元内全局优化）。
+lto = "thin"
+codegen-units = 1
 panic = "abort"
 strip = true
 

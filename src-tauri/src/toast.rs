@@ -25,6 +25,12 @@ const TOAST_LABEL: &str = "toast";
 const TOAST_WIDTH: f64 = 340.0;
 const TOAST_HEIGHT: f64 = 56.0;
 const TOAST_DURATION_MS: u64 = 1500;
+/// 隐藏后再保留多久才销毁窗口。
+///
+/// 此前隐藏即长期驻留，一个气泡提示换来一个常驻 WebView renderer 进程（数十 MB）。
+/// 留一段冷却期让连续 toast 仍能复用同一窗口，冷却过后销毁，把进程交还系统；
+/// 下次提示重建约 200ms，对非阻塞提示可以接受。
+const TOAST_DESTROY_DELAY_MS: u64 = 30_000;
 // 屏幕边距：水平 24px；垂直 44px（= 24 + 20，用户反馈默认 24 时偏下，整体上移 20px）。
 const SCREEN_MARGIN_X: i32 = 24;
 const SCREEN_MARGIN_Y: i32 = 44;
@@ -106,6 +112,7 @@ fn show_toast_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     } else {
         // 不设 data_directory：复用主窗口已就绪的 WebView2 环境（理由见 pin/window.rs）。
         let win = WebviewWindowBuilder::new(app, TOAST_LABEL, WebviewUrl::App("index.html".into()))
+            .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
             .title("提示")
             .inner_size(TOAST_WIDTH, TOAST_HEIGHT)
             .resizable(false)
@@ -172,6 +179,16 @@ fn schedule_hide<R: Runtime>(app: &AppHandle<R>, generation: u64) {
         }
         if let Some(window) = app.get_webview_window(TOAST_LABEL) {
             let _ = window.hide();
+        }
+
+        // 冷却期内若有新 toast（代次已变）就把窗口留给它复用；否则销毁。
+        std::thread::sleep(Duration::from_millis(TOAST_DESTROY_DELAY_MS));
+        if app.state::<ToastState>().hide_generation.load(Ordering::SeqCst) != generation {
+            return;
+        }
+        if let Some(window) = app.get_webview_window(TOAST_LABEL) {
+            let _ = window.destroy();
+            log::debug!("[toast] 冷却期无新提示，已销毁 toast 窗口");
         }
     });
 }

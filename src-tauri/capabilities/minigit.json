@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "minigit",
+  "description": "Capability for the mini-git resident window",
+  "windows": ["mini-git"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "log:default",
+    "core:window:allow-close",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-title",
+    "dialog:allow-open",
+    "clipboard-manager:allow-write-text",
+    "opener:allow-open-path",
+    "opener:allow-open-url",
+    "opener:allow-reveal-item-in-dir"
+  ]
+}

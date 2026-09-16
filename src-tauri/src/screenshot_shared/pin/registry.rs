@@ -5,6 +5,8 @@
 //! 方法供 `window`/`commands`/`protocol` 子模块调用。
 
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::Serialize;
@@ -53,7 +55,7 @@ pub struct PinTrayItem {
 #[derive(Clone, Debug)]
 struct PinEntry {
     state: PinState,
-    image_png: Arc<Vec<u8>>,
+    image_path: PathBuf,
 }
 
 #[derive(Debug, Default)]
@@ -66,19 +68,15 @@ struct PinRegistryInner {
 pub struct PinRegistry {
     inner: Mutex<PinRegistryInner>,
     aggregate_cap_bytes: u64,
-}
-
-impl Default for PinRegistry {
-    fn default() -> Self {
-        Self::new(DEFAULT_AGGREGATE_PIN_CAP_BYTES)
-    }
+    spill_dir: PathBuf,
 }
 
 impl PinRegistry {
-    pub fn new(aggregate_cap_bytes: u64) -> Self {
+    pub fn new(aggregate_cap_bytes: u64, spill_dir: PathBuf) -> Self {
         Self {
             inner: Mutex::new(PinRegistryInner::default()),
             aggregate_cap_bytes,
+            spill_dir,
         }
     }
 
@@ -96,6 +94,7 @@ impl PinRegistry {
             ));
         }
         let accounted_bytes = decoded_bytes.saturating_add(image_png.len() as u64);
+        // PNG 虽然搬到了磁盘，但继续计入预算是保守且安全的做法——避免内存实际用量与记账出现偏差。
         let mut inner = self
             .inner
             .lock()
@@ -126,12 +125,19 @@ impl PinRegistry {
             flipped_v: false,
             group: 0,
         };
+
+        // PNG 写到磁盘。持锁期间做 I/O 是为了保证原子性：若写入失败，
+        // 不会向注册表插入条目、也不会累加 total_bytes，从而避免记账泄漏。
+        let image_path = self.spill_dir.join(format!("{pin_id}.png"));
+        fs::write(&image_path, &image_png)
+            .map_err(|e| format!("写入贴图图像失败：{e}"))?;
+
         inner.total_bytes = inner.total_bytes.saturating_add(accounted_bytes);
         inner.pins.insert(
             pin_id,
             PinEntry {
                 state: state.clone(),
-                image_png: Arc::new(image_png),
+                image_path,
             },
         );
         Ok(state)
@@ -148,7 +154,7 @@ impl PinRegistry {
     }
 
     pub(super) fn image(&self, pin_id: &str, token: &str) -> Result<Vec<u8>, String> {
-        let image_png = {
+        let image_path = {
             let inner = self
                 .inner
                 .lock()
@@ -160,10 +166,10 @@ impl PinRegistry {
             if entry.state.image_token != token {
                 return Err("贴图图像令牌无效".to_string());
             }
-            // 锁内只 clone Arc（廉价）；完整 PNG 拷贝放到锁外，避免阻塞其它贴图操作。
-            Arc::clone(&entry.image_png)
+            // 锁内只取路径；磁盘读取放到锁外，避免阻塞其它贴图操作。
+            entry.image_path.clone()
         };
-        Ok(image_png.as_ref().clone())
+        fs::read(&image_path).map_err(|e| format!("读取贴图图像失败：{e}"))
     }
 
     /// Commit an already-applied native target state. The state comparison makes
@@ -200,6 +206,10 @@ impl PinRegistry {
         inner.total_bytes = inner
             .total_bytes
             .saturating_sub(entry.state.accounted_bytes);
+        // 尝试删除磁盘文件；失败只记 warn，不让关闭操作失败。
+        if let Err(e) = fs::remove_file(&entry.image_path) {
+            log::warn!("删除贴图文件失败 ({}): {e}", entry.image_path.display());
+        }
         true
     }
 
@@ -249,7 +259,16 @@ impl PinRegistry {
 /// 获取全局贴图注册表（运行时建贴图窗口也走这里，不重复预热）。
 pub(super) fn pin_registry() -> Arc<PinRegistry> {
     PIN_REGISTRY
-        .get_or_init(|| Arc::new(PinRegistry::default()))
+        .get_or_init(|| {
+            // 正常路径下 setup 阶段的 initialize 已经填好这里。走到兜底说明初始化顺序被打乱，
+            // 用系统临时目录成表而不是 panic —— release profile 是 panic = "abort"，
+            // 一次 panic 会带走整个进程；退化成「贴图写盘失败」远好于应用直接消失。
+            log::warn!("[pin] 注册表未经 initialize 就被取用，回退到系统临时目录");
+            Arc::new(PinRegistry::new(
+                DEFAULT_AGGREGATE_PIN_CAP_BYTES,
+                std::env::temp_dir().join("open-toolbox-pins"),
+            ))
+        })
         .clone()
 }
 
@@ -277,7 +296,8 @@ mod tests {
 
     #[test]
     fn commit_state_requires_the_expected_previous_state() {
-        let registry = PinRegistry::new(1_000_000);
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let registry = PinRegistry::new(1_000_000, temp_dir.path().to_path_buf());
         let previous = registry.reserve(valid_png(), 4, 3).unwrap();
         let target = PinState {
             zoom_percent: 150,
@@ -302,7 +322,8 @@ mod tests {
 
     #[test]
     fn commit_state_does_not_change_memory_accounting() {
-        let registry = PinRegistry::new(1_000_000);
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let registry = PinRegistry::new(1_000_000, temp_dir.path().to_path_buf());
         let previous = registry.reserve(valid_png(), 4, 3).unwrap();
         let accounted_bytes = registry.total_bytes();
         let target = PinState {
@@ -318,7 +339,8 @@ mod tests {
 
     #[test]
     fn registry_accounts_and_close_is_idempotent() {
-        let registry = PinRegistry::new(1_000_000);
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let registry = PinRegistry::new(1_000_000, temp_dir.path().to_path_buf());
         let state = registry.reserve(valid_png(), 4, 3).unwrap();
         assert_eq!(registry.total_bytes(), state.accounted_bytes);
         assert!(registry.remove(&state.pin_id));
@@ -329,8 +351,20 @@ mod tests {
 
     #[test]
     fn registry_rejects_cap_before_insert() {
-        let registry = PinRegistry::new(10);
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let registry = PinRegistry::new(10, temp_dir.path().to_path_buf());
         assert!(registry.reserve(valid_png(), 4, 3).is_err());
         assert_eq!(registry.total_bytes(), 0);
+    }
+
+    #[test]
+    fn image_roundtrip_reads_back_identical_bytes() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let registry = PinRegistry::new(1_000_000, temp_dir.path().to_path_buf());
+        let original_png = valid_png();
+        let state = registry.reserve(original_png.clone(), 4, 3).unwrap();
+
+        let read_png = registry.image(&state.pin_id, &state.image_token).unwrap();
+        assert_eq!(read_png, original_png, "读取的 PNG 字节必须与写入的完全一致");
     }
 }

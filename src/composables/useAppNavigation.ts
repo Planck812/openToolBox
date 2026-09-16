@@ -8,6 +8,8 @@ import { useAppStore } from '@/store/app';
 import { useI18n } from 'vue-i18n';
 import { logToFile } from '@/lib/logger';
 import { toastShow } from '@/lib/ipc/toast';
+import { getToolById } from '@/tools/registry';
+import { commands } from '@/lib/ipc/bindings';
 
 /**
  * 页面导航与管线执行（拆分自 App.vue）。
@@ -68,6 +70,12 @@ export function useAppNavigation(deps: {
   const openToolView = async (toolId: string) => {
     try {
       await logToFile('info', 'openToolView - Starting:', toolId);
+      const tool = getToolById(toolId);
+      if (tool?.metadata.mode === 'window') {
+        await commands.residentOpen(toolId);
+        await logToFile('info', 'openToolView - Resident window opened:', toolId);
+        return;
+      }
       const appWindow = await deps.ensureWindowActivated('openToolView');
       if (!appWindow) return;
       await router.push(`/tool/${toolId}`);

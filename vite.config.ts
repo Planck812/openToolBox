@@ -44,6 +44,7 @@ export default defineConfig(async () => ({
         sticky: path.resolve(__dirname, "sticky.html"),
         reminder: path.resolve(__dirname, "reminder.html"),
         timer: path.resolve(__dirname, "timer.html"),
+        minigit: path.resolve(__dirname, "mini-git.html"),
       },
     },
     // 允许按需加载的 JSON 编辑器块保持较大体积，避免对已拆离主入口的懒加载块继续报噪音告警。

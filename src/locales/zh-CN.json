@@ -304,6 +304,10 @@
     }
   },
   "tools": {
+    "mini_git": {
+      "name": "Mini-Git",
+      "description": "轻量本地 Git 仓库审阅器，支持文件树、文件查看与提交历史差异"
+    },
     "tool_load_failed": "工具加载失败：{error}",
     "json_diff": {
       "name": "JSON 对比",

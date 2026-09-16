@@ -13,6 +13,8 @@ mod shortcuts;
 mod timer;
 mod toast;
 mod tray;
+pub mod minigit;
+pub mod resident;
 #[cfg(all(debug_assertions, windows))]
 mod console_shutdown;
 
@@ -227,10 +229,47 @@ macro_rules! pwdbox_commands {
 
 macro_rules! toast_commands {
     ($builder:expr, [$($cmd:tt)*]) => {
-        $builder.invoke_handler(tauri::generate_handler![
-            $($cmd)*
+        resident_commands!($builder, [$($cmd)*
             toast::toast_show,
             toast::toast_get,
+        ])
+    };
+}
+
+macro_rules! resident_commands {
+    ($builder:expr, [$($cmd:tt)*]) => {
+        minigit_commands!($builder, [$($cmd)*
+            resident::commands::resident_open,
+            resident::commands::resident_focus,
+        ])
+    };
+}
+
+macro_rules! minigit_commands {
+    ($builder:expr, [$($cmd:tt)*]) => {
+        $builder.invoke_handler(tauri::generate_handler![
+            $($cmd)*
+            minigit::mg_validate_repo,
+            minigit::mg_open_session,
+            minigit::mg_close_session,
+            minigit::mg_repo_state,
+            minigit::mg_list_dir,
+            minigit::mg_list_tracked_files,
+            minigit::mg_read_file_meta,
+            minigit::mg_read_file_content,
+            minigit::mg_read_blob_content,
+            minigit::mg_list_refs,
+            minigit::mg_has_changes,
+            minigit::mg_log_open,
+            minigit::mg_log_next,
+            minigit::mg_log_close,
+            minigit::mg_commit_detail,
+            minigit::mg_status,
+            minigit::mg_diff_prepare,
+            minigit::mg_search_start,
+            minigit::mg_search_poll,
+            minigit::mg_search_cancel,
+            minigit::mg_unpushed_commits,
         ])
     };
 }
@@ -363,6 +402,29 @@ macro_rules! specta_commands {
             timer::alert::timer_alert_action::<tauri::Wry>,
             toast::toast_show::<tauri::Wry>,
             toast::toast_get,
+            resident::commands::resident_open::<tauri::Wry>,
+            resident::commands::resident_focus::<tauri::Wry>,
+            minigit::mg_validate_repo::<tauri::Wry>,
+            minigit::mg_open_session::<tauri::Wry>,
+            minigit::mg_close_session::<tauri::Wry>,
+            minigit::mg_repo_state::<tauri::Wry>,
+            minigit::mg_list_dir::<tauri::Wry>,
+            minigit::mg_list_tracked_files::<tauri::Wry>,
+            minigit::mg_read_file_meta::<tauri::Wry>,
+            minigit::mg_read_file_content::<tauri::Wry>,
+            minigit::mg_read_blob_content::<tauri::Wry>,
+            minigit::mg_list_refs::<tauri::Wry>,
+            minigit::mg_has_changes::<tauri::Wry>,
+            minigit::mg_log_open::<tauri::Wry>,
+            minigit::mg_log_next::<tauri::Wry>,
+            minigit::mg_log_close::<tauri::Wry>,
+            minigit::mg_commit_detail::<tauri::Wry>,
+            minigit::mg_status::<tauri::Wry>,
+            minigit::mg_diff_prepare::<tauri::Wry>,
+            minigit::mg_search_start::<tauri::Wry>,
+            minigit::mg_search_poll::<tauri::Wry>,
+            minigit::mg_search_cancel::<tauri::Wry>,
+            minigit::mg_unpushed_commits::<tauri::Wry>,
         ]
     };
 }
@@ -482,6 +544,29 @@ macro_rules! specta_commands {
             timer::alert::timer_alert_action::<tauri::Wry>,
             toast::toast_show::<tauri::Wry>,
             toast::toast_get,
+            resident::commands::resident_open::<tauri::Wry>,
+            resident::commands::resident_focus::<tauri::Wry>,
+            minigit::mg_validate_repo::<tauri::Wry>,
+            minigit::mg_open_session::<tauri::Wry>,
+            minigit::mg_close_session::<tauri::Wry>,
+            minigit::mg_repo_state::<tauri::Wry>,
+            minigit::mg_list_dir::<tauri::Wry>,
+            minigit::mg_list_tracked_files::<tauri::Wry>,
+            minigit::mg_read_file_meta::<tauri::Wry>,
+            minigit::mg_read_file_content::<tauri::Wry>,
+            minigit::mg_read_blob_content::<tauri::Wry>,
+            minigit::mg_list_refs::<tauri::Wry>,
+            minigit::mg_has_changes::<tauri::Wry>,
+            minigit::mg_log_open::<tauri::Wry>,
+            minigit::mg_log_next::<tauri::Wry>,
+            minigit::mg_log_close::<tauri::Wry>,
+            minigit::mg_commit_detail::<tauri::Wry>,
+            minigit::mg_status::<tauri::Wry>,
+            minigit::mg_diff_prepare::<tauri::Wry>,
+            minigit::mg_search_start::<tauri::Wry>,
+            minigit::mg_search_poll::<tauri::Wry>,
+            minigit::mg_search_cancel::<tauri::Wry>,
+            minigit::mg_unpushed_commits::<tauri::Wry>,
         ]
     };
 }
@@ -518,27 +603,11 @@ pub(crate) fn log_to_test_file(_message: &str) {}
 
 pub(crate) use tray::refresh_pin_tray;
 
-/// 主窗口尺寸自适应：把配置里的默认尺寸夹到当前显示器工作区以内，并居中。
-///
-/// 背景：`tauri.conf.json` 只能写死一个默认尺寸（1600x800）。在小屏设备上
-/// （如 13" MacBook 缩放后逻辑分辨率仅 1470x956）该尺寸超出屏幕宽度，窗口
-/// 左右两侧会被裁掉且无法通过拖动完全看到，首次启动体验直接不可用。
-///
-/// 这里在 setup 阶段按真实工作区（`work_area()` 已扣除菜单栏 / Dock / 任务栏）
-/// 重新计算：宽高各留 `SCREEN_MARGIN_RATIO` 的边距上限，超出才收缩，小屏收缩、
-/// 大屏保持配置值不变；随后居中。多显示器 / 缩放比例变化均由工作区数据覆盖。
-///
-/// 失败（读不到显示器）时静默跳过，沿用配置尺寸，不阻断启动。
-fn fit_main_window_to_screen(app: &tauri::App) {
+/// 窗口尺寸自适应：把配置里的默认尺寸夹到当前显示器工作区以内，并居中 (B-6 #3)。
+pub fn fit_window_to_screen<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, min_w: f64, min_h: f64) {
     /// 窗口最多占用工作区的比例，留出边距避免贴边。
     const SCREEN_MARGIN_RATIO: f64 = 0.9;
-    /// 收缩下限（逻辑像素）：低于此值布局会破形，宁可让窗口贴边也不再缩。
-    const MIN_W: f64 = 900.0;
-    const MIN_H: f64 = 600.0;
 
-    let Some(window) = app.get_webview_window("main") else {
-        return;
-    };
     // current_monitor 在窗口尚未显示时可能为 None，回退到主显示器。
     let monitor = match window.current_monitor() {
         Ok(Some(m)) => Some(m),
@@ -560,8 +629,8 @@ fn fit_main_window_to_screen(app: &tauri::App) {
     let cur_w = current.width as f64 / scale;
     let cur_h = current.height as f64 / scale;
 
-    let target_w = cur_w.min(avail_w * SCREEN_MARGIN_RATIO).max(MIN_W.min(avail_w));
-    let target_h = cur_h.min(avail_h * SCREEN_MARGIN_RATIO).max(MIN_H.min(avail_h));
+    let target_w = cur_w.min(avail_w * SCREEN_MARGIN_RATIO).max(min_w.min(avail_w));
+    let target_h = cur_h.min(avail_h * SCREEN_MARGIN_RATIO).max(min_h.min(avail_h));
 
     // 只在确实需要收缩时才改尺寸，避免大屏上无谓的 resize。
     let shrink = target_w < cur_w - 1.0 || target_h < cur_h - 1.0;
@@ -571,7 +640,7 @@ fn fit_main_window_to_screen(app: &tauri::App) {
 
     // 这里不能用 `window.center()`：macOS 上 `set_size` 是异步派发到主队列执行的
     // （tao `set_content_size_async`），`center()` 紧接着执行时读到的仍是收缩「前」
-    // 的旧尺寸，会把窗口按 1600 宽居中（x 为负），随后尺寸才缩小 —— 结果窗口整体
+    // 的旧尺寸，会把窗口按旧尺寸居中（x 为负），随后尺寸才缩小 —— 结果窗口整体
     // 偏左、左侧超出屏幕。改为用「目标尺寸」自行计算居中位置并显式设置，
     // 结果不依赖 set_size 何时真正生效。
     let work_x = work_area.position.x as f64 / scale;
@@ -583,7 +652,8 @@ fn fit_main_window_to_screen(app: &tauri::App) {
     // 显示器相关的几何计算跨设备差异大（缩放比 / 多屏 / Dock 位置），
     // 留一条日志便于排查「窗口尺寸不对」类问题。
     log::info!(
-        "[window-fit] 工作区 {:.0}x{:.0} @({:.0},{:.0}) scale {:.2}，窗口 {:.0}x{:.0} -> {:.0}x{:.0}{}，定位 ({:.0},{:.0})",
+        "[window-fit] 窗口 [{}] 工作区 {:.0}x{:.0} @({:.0},{:.0}) scale {:.2}，窗口 {:.0}x{:.0} -> {:.0}x{:.0}{}，定位 ({:.0},{:.0})",
+        window.label(),
         avail_w,
         avail_h,
         work_x,
@@ -598,6 +668,53 @@ fn fit_main_window_to_screen(app: &tauri::App) {
         pos_y
     );
 }
+
+fn fit_main_window_to_screen(app: &tauri::App) {
+    if let Some(window) = app.get_webview_window("main") {
+        fit_window_to_screen(&window, 900.0, 600.0);
+    }
+}
+
+/// 窗口隐藏到托盘后修剪进程工作集（仅 Windows）。
+///
+/// 隐藏后页面不再绘制，驻留的物理页多半是冷的，`SetProcessWorkingSetSize(-1, -1)`
+/// 请求系统把它们换出——是真实回收，不是读数作弊。延迟两秒执行，等 WebView 走完
+/// 隐藏后的内部释放，修剪才收得干净。
+pub(crate) fn trim_working_set() {
+    #[cfg(windows)]
+    {
+        std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            use windows::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+            // (usize::MAX, usize::MAX) 即 Win32 约定的 (-1, -1)：请求修剪而非设定配额。
+            unsafe {
+                let _ = SetProcessWorkingSetSize(GetCurrentProcess(), usize::MAX, usize::MAX);
+            }
+        });
+    }
+}
+
+/// WebView2 启动参数（仅 Windows 生效，其余平台该设置为空操作）。
+///
+/// 前半段是 wry 的默认值，必须原样带着：`additional_browser_args` 一旦设置就整体替换
+/// 默认值，漏掉这段等于把「迷你菜单」和 SmartScreen 重新打开。
+///
+/// 后半段给 V8 老生代封顶。默认上限随物理内存浮动（64 位桌面通常到 GB 级），对一个
+/// 工具箱毫无意义；封到 512 MiB 既留足 mermaid / jsoneditor 这类重工具的余量，
+/// 又能让失控增长在触顶前先触发 GC 而不是一路吃满。
+///
+/// 这个字符串必须与 `tauri.conf.json` 里主窗口的 `additionalBrowserArgs` 逐字节一致：
+/// 参数进的是进程级的 CoreWebView2Environment，同一 user data 目录下拿不同参数创建
+/// 第二个环境会以 ERROR_INVALID_STATE 失败——那个窗口就再也开不出来。
+/// 下面的 `webview_browser_args_match_tauri_conf` 测试守着这条不变量。
+///
+/// `--process-per-site` 把同源页面并进同一个渲染进程。本机实测：主窗口 + mini-git +
+/// 3 个贴图共 5 个窗口时跑出 6 个独立 renderer，各占 44-72 MiB 私有内存，合计约
+/// 330 MiB——窗口全部同源，这些进程之间没有隔离价值，纯属重复开销。
+/// 代价是任一渲染进程崩溃会带走全部窗口；本应用的窗口都是无状态视图（贴图图像存磁盘、
+/// 便利贴存 store），重开即可恢复，故接受这个取舍。
+pub const WEBVIEW_BROWSER_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --js-flags=--max-old-space-size=512 --process-per-site";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -648,6 +765,8 @@ pub fn run() {
             app.manage(crate::screenshot_shared::pin::initialize(app.handle()));
             // OCR 引擎状态：引擎实例首次识别时初始化并缓存；tessdata 目录动态解析。
             app.manage(crate::ocr::OcrState::new());
+            // 引擎闲置 5 分钟后自动释放（LSTM 模型常驻内存可达上百 MB）。
+            crate::ocr::spawn_idle_reaper(app.handle());
             // 便利贴状态。
             app.manage(crate::sticky::StickyState::new());
             crate::sedentary::initialize(app)?;
@@ -656,6 +775,12 @@ pub fn run() {
             crate::shortcuts::initialize(app)?;
             crate::env::initialize(app)?;
             crate::tray::create_quicklaunch_window(app)?;
+            // 本模块纯读，不做任何写入；关闭所有权校验以支持只读挂载、
+            // 网络共享与容器绑定挂载下的仓库。注意这是进程全局开关 (NFR-3.2, AC-8.1)。
+            unsafe {
+                let _ = git2::opts::set_verify_owner_validation(false);
+            }
+            app.manage(std::sync::Arc::new(crate::minigit::SessionManager::new()));
             #[cfg(debug_assertions)]
             if let Err(e) = export_specta_bindings() {
                 log::error!("[specta] 导出 TS 绑定失败: {e}");
@@ -666,10 +791,11 @@ pub fn run() {
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
-                    // Only the main window hides to tray. Pin windows are destroyed.
-                    if window.label() == "main" {
+                    // 主窗口与常驻窗口（mini-git、resident-*）拦截关闭并隐藏到后台，图钉窗口销毁
+                    if window.label() == "main" || window.label() == "mini-git" || window.label().starts_with("resident-") {
                         let _ = window.hide();
                         api.prevent_close();
+                        trim_working_set();
                     } else if window.label().starts_with("pin-") {
                         crate::screenshot_shared::pin::cleanup_window_label(window.label());
                     } else {

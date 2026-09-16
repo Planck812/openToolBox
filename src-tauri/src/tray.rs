@@ -155,6 +155,7 @@ pub(crate) fn create_quicklaunch_window(app: &mut tauri::App) -> Result<(), Stri
         "quicklaunch",
         tauri::WebviewUrl::App("index.html".into()),
     )
+    .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
     .inner_size(600.0, 160.0)
     .center()
     .resizable(false)
@@ -238,6 +239,7 @@ pub(crate) fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
                 "minimize" => {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.hide();
+                        crate::trim_working_set();
                     }
                 }
                 #[cfg(screenshot_supported)]

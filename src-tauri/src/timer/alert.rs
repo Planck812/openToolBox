@@ -170,6 +170,7 @@ fn create_alert_window<R: Runtime>(app: &AppHandle<R>, kind: &str, id: &str) -> 
     // 原按 `timer-webview/{kind}-{id}` 分目录，每个同时到点的提醒都会多拉起一整套
     // msedgewebview2 进程组。
     WebviewWindowBuilder::new(app, label.as_str(), url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("计时提醒")
         .inner_size(width, height)
         .center()

@@ -35,6 +35,7 @@ pub(super) fn create_reminder_window<R: Runtime>(app: &AppHandle<R>) -> Result<(
 
     // 不设 data_directory：复用主窗口已就绪的 WebView2 环境（理由见 pin/window.rs）。
     let result = WebviewWindowBuilder::new(app, SEDENTARY_WINDOW_LABEL, url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("久坐提醒")
         .inner_size(640.0, 400.0)
         .center()

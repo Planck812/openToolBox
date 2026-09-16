@@ -79,6 +79,10 @@ const specs = [
     modulePath: path.resolve(projectRoot, 'tests', 'desktop', 'specs', 'mermaid-preview.e2e.mjs'),
   },
   {
+    name: 'mini-git',
+    modulePath: path.resolve(projectRoot, 'tests', 'desktop', 'specs', 'mini-git.e2e.mjs'),
+  },
+  {
     name: 'port-killer',
     modulePath: path.resolve(projectRoot, 'tests', 'desktop', 'specs', 'port-killer.e2e.mjs'),
   },

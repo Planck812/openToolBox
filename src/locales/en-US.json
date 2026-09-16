@@ -304,6 +304,10 @@
     }
   },
   "tools": {
+    "mini_git": {
+      "name": "Mini-Git",
+      "description": "Lightweight local Git repository reviewer with file tree, file viewer, and commit history diff"
+    },
     "tool_load_failed": "Failed to load tool: {error}",
     "json_diff": {
       "name": "JSON Diff",

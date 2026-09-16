@@ -4,6 +4,7 @@
 //! `initialize` 是应用启动入口（lib.rs 调用）。`PinCreateResult` 为窗口创建命令的
 //! 返回 DTO。
 
+use std::fs;
 use std::io::Cursor;
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ use specta::Type;
 use tauri::{AppHandle, LogicalSize, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 use super::aspect_size;
-use super::registry::{pin_registry, PinRegistry, PinState};
+use super::registry::{pin_registry, PinRegistry, PinState, PIN_REGISTRY, DEFAULT_AGGREGATE_PIN_CAP_BYTES};
 
 #[derive(Clone, Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -30,8 +31,45 @@ const PIN_WINDOW_APP_ROUTE: &str = "pin.html";
 /// 原先还会后台建一个常驻隐藏窗口预热 WebView2——那是独立 data_directory 才需要的
 /// （全新环境初始化慢）。改用主窗口环境后环境在应用启动时已就绪，首个贴图窗直接走
 /// 热路径，预热窗连同它常驻的一整套 msedgewebview2 进程一并去掉。
-pub fn initialize<R: Runtime>(_app: &AppHandle<R>) -> Arc<PinRegistry> {
-    pin_registry()
+pub fn initialize<R: Runtime>(app: &AppHandle<R>) -> Arc<PinRegistry> {
+    // 获取 Tauri 缓存目录作为贴图暂存目录。
+    let spill_dir = match app.path().app_cache_dir() {
+        Ok(dir) => dir.join("pins"),
+        Err(e) => {
+            log::error!("[pin] 获取缓存目录失败：{e}，使用应用运行目录下 pins");
+            std::env::current_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                .join("pins")
+        }
+    };
+
+    // 创建目录；如果存在则验证为真实目录。
+    if let Err(e) = fs::create_dir_all(&spill_dir) {
+        log::error!("[pin] 创建贴图暂存目录失败：{e}");
+    }
+
+    // 启动时清空残留文件——贴图注册表是纯内存的，不跨进程存活，所以上次运行的文件必然是孤儿。
+    if let Ok(entries) = fs::read_dir(&spill_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "png") {
+                if let Err(e) = fs::remove_file(&path) {
+                    log::warn!("[pin] 清理孤儿文件失败 ({}): {e}", path.display());
+                }
+            }
+        }
+    }
+
+    // 初始化全局注册表。必须返回 OnceLock 里的那一份：若写成「先建实例、再 get_or_init」，
+    // 一旦全局已被填过，返回的就是另一个空注册表，协议处理器读 PIN_REGISTRY 会全部 404。
+    PIN_REGISTRY
+        .get_or_init(|| {
+            Arc::new(PinRegistry::new(
+                DEFAULT_AGGREGATE_PIN_CAP_BYTES,
+                spill_dir,
+            ))
+        })
+        .clone()
 }
 
 pub(super) fn create_pin_window<R: Runtime>(
@@ -54,6 +92,7 @@ pub(super) fn create_pin_window<R: Runtime>(
     // 一个 renderer（+1 进程）。原注释称共享会导致引擎静默初始化失败（白窗、无
     // page-load 事件），经探针实测不成立：共享环境下窗口渲染与 page-load 均正常。
     let build_result = WebviewWindowBuilder::new(app, &state.label, pin_url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .on_page_load(move |_window, payload| {
             log::debug!(
                 "[pin] page load {:?}: {} (+{:?} since create)",
