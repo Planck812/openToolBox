@@ -708,10 +708,13 @@ pub(crate) fn trim_working_set() {
 /// 第二个环境会以 ERROR_INVALID_STATE 失败——那个窗口就再也开不出来。
 /// 下面的 `webview_browser_args_match_tauri_conf` 测试守着这条不变量。
 ///
-/// 想进一步合并渲染进程可以追加 `--process-per-site`（多窗口同源时收益明显），
-/// 代价是任一渲染进程崩溃会带走全部窗口，上线前请先实测收益。
+/// `--process-per-site` 把同源页面并进同一个渲染进程。本机实测：主窗口 + mini-git +
+/// 3 个贴图共 5 个窗口时跑出 6 个独立 renderer，各占 44-72 MiB 私有内存，合计约
+/// 330 MiB——窗口全部同源，这些进程之间没有隔离价值，纯属重复开销。
+/// 代价是任一渲染进程崩溃会带走全部窗口；本应用的窗口都是无状态视图（贴图图像存磁盘、
+/// 便利贴存 store），重开即可恢复，故接受这个取舍。
 pub const WEBVIEW_BROWSER_ARGS: &str =
-    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --js-flags=--max-old-space-size=512";
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --js-flags=--max-old-space-size=512 --process-per-site";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
