@@ -633,6 +633,7 @@ fn create_hud_window<R: Runtime>(app: &AppHandle<R>, label: &str) -> Result<(), 
 
     let url = hud_window_url(app)?;
     WebviewWindowBuilder::new(app, label, url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("滚动截图")
         .position(x, y)
         .inner_size(hud_w, hud_h)

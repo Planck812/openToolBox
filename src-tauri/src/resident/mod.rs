@@ -27,6 +27,7 @@ pub fn open_resident_window<R: Runtime>(app: &AppHandle<R>, tool_id: &str) -> Re
     };
 
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url_str.into()))
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("Mini-Git")
         .inner_size(1400.0, 900.0)
         .min_inner_size(1000.0, 600.0)

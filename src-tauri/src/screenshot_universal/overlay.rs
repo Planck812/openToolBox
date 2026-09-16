@@ -40,6 +40,7 @@ pub fn create_overlay_window<R: Runtime>(
     let url = overlay_window_url(app)?;
 
     WebviewWindowBuilder::new(app, &label, url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .title("全平台截图")
         .position(logical_x, logical_y)
         .inner_size(logical_w, logical_h)

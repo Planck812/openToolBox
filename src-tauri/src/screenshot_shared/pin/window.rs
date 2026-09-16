@@ -92,6 +92,7 @@ pub(super) fn create_pin_window<R: Runtime>(
     // 一个 renderer（+1 进程）。原注释称共享会导致引擎静默初始化失败（白窗、无
     // page-load 事件），经探针实测不成立：共享环境下窗口渲染与 page-load 均正常。
     let build_result = WebviewWindowBuilder::new(app, &state.label, pin_url)
+        .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
         .on_page_load(move |_window, payload| {
             log::debug!(
                 "[pin] page load {:?}: {} (+{:?} since create)",

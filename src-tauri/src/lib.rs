@@ -694,6 +694,25 @@ pub(crate) fn trim_working_set() {
     }
 }
 
+/// WebView2 启动参数（仅 Windows 生效，其余平台该设置为空操作）。
+///
+/// 前半段是 wry 的默认值，必须原样带着：`additional_browser_args` 一旦设置就整体替换
+/// 默认值，漏掉这段等于把「迷你菜单」和 SmartScreen 重新打开。
+///
+/// 后半段给 V8 老生代封顶。默认上限随物理内存浮动（64 位桌面通常到 GB 级），对一个
+/// 工具箱毫无意义；封到 512 MiB 既留足 mermaid / jsoneditor 这类重工具的余量，
+/// 又能让失控增长在触顶前先触发 GC 而不是一路吃满。
+///
+/// 这个字符串必须与 `tauri.conf.json` 里主窗口的 `additionalBrowserArgs` 逐字节一致：
+/// 参数进的是进程级的 CoreWebView2Environment，同一 user data 目录下拿不同参数创建
+/// 第二个环境会以 ERROR_INVALID_STATE 失败——那个窗口就再也开不出来。
+/// 下面的 `webview_browser_args_match_tauri_conf` 测试守着这条不变量。
+///
+/// 想进一步合并渲染进程可以追加 `--process-per-site`（多窗口同源时收益明显），
+/// 代价是任一渲染进程崩溃会带走全部窗口，上线前请先实测收益。
+pub const WEBVIEW_BROWSER_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --js-flags=--max-old-space-size=512";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = crate::screenshot_universal::register_frame_image_protocol(

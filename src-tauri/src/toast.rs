@@ -112,6 +112,7 @@ fn show_toast_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     } else {
         // 不设 data_directory：复用主窗口已就绪的 WebView2 环境（理由见 pin/window.rs）。
         let win = WebviewWindowBuilder::new(app, TOAST_LABEL, WebviewUrl::App("index.html".into()))
+            .additional_browser_args(crate::WEBVIEW_BROWSER_ARGS)
             .title("提示")
             .inner_size(TOAST_WIDTH, TOAST_HEIGHT)
             .resizable(false)
