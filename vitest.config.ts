@@ -18,6 +18,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // 排除 git worktree：.claude/worktrees/ 下是整个仓库的副本，不排除会让每个
+    // 测试文件被发现两遍，用例数凭空翻倍——排查问题时极易误判。
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
     globals: true,
     setupFiles: ['tests/setup.ts'],
     coverage: {
