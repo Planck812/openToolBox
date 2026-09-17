@@ -166,6 +166,29 @@ pub fn diff_prepare(
         };
 
         (old_bytes, new_bytes, None)
+    } else if let Some(oid_str) = source.strip_prefix("commit-local:") {
+        // 「与本地对比」：左边是提交里的版本，右边是工作区磁盘上的当前内容，
+        // 因此未提交的改动也会算进来（对齐 IDEA 的 Compare with Local）。
+        let oid = Oid::from_str(oid_str).map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+        let commit = repo.find_commit(oid).map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+        let tree = commit.tree().map_err(|e| MiniGitError::Other(e.message().to_string()))?;
+
+        let old_bytes = match tree.get_path(Path::new(&normalized_rel)) {
+            Ok(entry) => repo
+                .find_blob(entry.id())
+                .map(|b| b.content().to_vec())
+                .unwrap_or_default(),
+            Err(_) => Vec::new(), // 该提交里没有这个文件
+        };
+
+        let file_path = workdir.join(&normalized_rel);
+        let new_bytes = if file_path.exists() {
+            std::fs::read(&file_path).unwrap_or_default()
+        } else {
+            Vec::new() // 本地已删除
+        };
+
+        (old_bytes, new_bytes, None)
     } else {
         (Vec::new(), Vec::new(), None)
     };

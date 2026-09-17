@@ -54,8 +54,9 @@ const loadDiff = async () => {
   diffRows.value = [];
 
   try {
-    const effectiveSource = (props.source === 'commit' && props.commitOid)
-      ? `commit:${props.commitOid}`
+    // 'commit' → 与父提交比；'commit-local' → 与工作区当前文件比
+    const effectiveSource = (props.commitOid && props.source.startsWith('commit'))
+      ? `${props.source}:${props.commitOid}`
       : props.source;
     const plan = await gitIpc.diffPrepare(gitData.repoId, effectiveSource, props.relPath);
     diffPlan.value = plan;

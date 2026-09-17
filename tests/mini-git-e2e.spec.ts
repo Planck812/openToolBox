@@ -755,6 +755,63 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     expect(sessionStore.activeGitTab).toBe('history');
     expect(sessionStore.selectedCommitOid).toBe('70242f4000000000000000000000000000000000');
   });
+
+  it('E2E Flow 11: 历史提交卡片右键「与本地对比」，文件按工作区当前内容比对', async () => {
+    const reposStore = useReposStore();
+    await reposStore.addRepo('C:/repos/test-repo');
+
+    router.push({ path: '/workspace', query: { path: 'C:/repos/test-repo' } });
+    await router.isReady();
+
+    const wrapper = mount(WorkspaceView, {
+      global: {
+        plugins: [pinia, router],
+      },
+    });
+    await flushPromises();
+
+    // 1. 切到历史面板
+    const historyTabBtn = wrapper.findAll('button').find((b) => b.text().includes('历史'));
+    expect(historyTabBtn).toBeDefined();
+    await historyTabBtn!.trigger('click');
+    await flushPromises();
+
+    // 2. 右键提交卡片，弹出菜单（Teleport 到 body）
+    const commitCard = wrapper.find('[data-testid="commit-card"]');
+    expect(commitCard.exists()).toBe(true);
+    await commitCard.trigger('contextmenu');
+    await flushPromises();
+
+    const menuItem = document.querySelector('[data-testid="compare-with-local"]') as HTMLElement | null;
+    expect(menuItem).not.toBeNull();
+
+    // 3. 点「与本地对比」，菜单关闭且提交被选中
+    menuItem!.click();
+    await flushPromises();
+
+    expect(document.querySelector('[data-testid="commit-context-menu"]')).toBeNull();
+    expect(wrapper.text()).toContain('与本地对比中');
+
+    // 4. 点详情里的文件，打开的是与工作区当前内容的对比
+    const fileRow = wrapper.findAll('div').find(
+      (d) => d.text().trim() === 'src/index.tsM' && d.classes().includes('cursor-pointer'),
+    );
+    expect(fileRow).toBeDefined();
+    await fileRow!.trigger('click');
+    await flushPromises();
+
+    const tabsStore = useTabsStore();
+    const diffTab = tabsStore.tabs.find((t) => t.type === 'diff');
+    expect(diffTab?.diffSource).toBe('commit-local');
+    expect(diffTab?.title).toContain('↔ 本地');
+
+    // 后端拿到的是 commit-local: 前缀，而不是与父提交比较的 commit:
+    expect(mockDiffPrepare).toHaveBeenCalledWith(
+      expect.anything(),
+      'commit-local:abc1234567890abcdef1234567890abcdef1234',
+      'src/index.ts',
+    );
+  });
 });
 
 

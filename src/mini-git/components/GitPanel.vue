@@ -17,6 +17,7 @@ import {
   List,
   ChevronsDownUp,
   ChevronsUpDown,
+  FolderSync,
 } from 'lucide-vue-next';
 import dayjs from 'dayjs';
 import { useGitDataStore } from '../stores/gitdata';
@@ -96,15 +97,63 @@ const openChangedFileDiff = (file: ChangedFile, isPinned: boolean) => {
   });
 };
 
-const openCommitFileDiff = (file: ChangedFile, commitOid: string, isPinned: boolean) => {
+const openCommitFileDiff = (
+  file: ChangedFile,
+  commitOid: string,
+  isPinned: boolean,
+  diffSource: 'commit' | 'commit-local' = 'commit',
+) => {
+  const name = file.path.split(/[/\\]/).pop() || file.path;
+  const short = commitOid.slice(0, 7);
   tabsStore.openTab({
     path: file.path,
-    title: `${file.path.split(/[/\\]/).pop()} (${commitOid.slice(0, 7)})`,
+    title: diffSource === 'commit-local' ? `${name} (${short} ↔ 本地)` : `${name} (${short})`,
     type: 'diff',
     isPinned,
-    diffSource: 'commit',
+    diffSource,
     commitOid,
   });
+};
+
+// 「与本地对比」模式：详情面板里的文件改为和工作区当前内容比对，
+// 而不是和父提交比对，所以尚未提交的改动也会显示出来。
+const compareWithLocal = ref(false);
+
+const openDetailFileDiff = (file: ChangedFile, commitOid: string, isPinned: boolean) => {
+  openCommitFileDiff(file, commitOid, isPinned, compareWithLocal.value ? 'commit-local' : 'commit');
+};
+
+const commitMenu = ref<{ visible: boolean; x: number; y: number; commit: CommitSummary | null }>({
+  visible: false,
+  x: 0,
+  y: 0,
+  commit: null,
+});
+
+const openCommitMenu = (event: MouseEvent, commit: CommitSummary) => {
+  commitMenu.value = { visible: true, x: event.clientX, y: event.clientY, commit };
+};
+
+const closeCommitMenu = () => {
+  commitMenu.value.visible = false;
+  commitMenu.value.commit = null;
+};
+
+const compareCommitWithLocal = async () => {
+  const commit = commitMenu.value.commit;
+  closeCommitMenu();
+  if (!commit) return;
+  compareWithLocal.value = true;
+  // 对比是在历史面板的详情列表里进行的，从变更页右键时也要切过去
+  sessionStore.activeGitTab = 'history';
+  sessionStore.selectedCommitOid = commit.oid;
+  await gitData.selectCommit(commit.oid);
+};
+
+const copyCommitOid = async () => {
+  const commit = commitMenu.value.commit;
+  closeCommitMenu();
+  if (commit) await copyText(commit.oid);
 };
 
 const copyAllChangedPaths = async () => {
@@ -345,6 +394,7 @@ const formatDate = (epochSec: number) => {
               v-for="commit in gitData.unpushedCommits"
               :key="commit.oid"
               class="p-2 space-y-1 hover:bg-muted/50 transition-colors"
+              @contextmenu.prevent="openCommitMenu($event, commit)"
             >
               <!-- Commit Row -->
               <div class="flex items-center justify-between gap-2">
@@ -565,12 +615,13 @@ const formatDate = (epochSec: number) => {
           <div
             v-for="c in displayedCommits"
             :key="c.oid"
+            data-testid="commit-card"
             class="p-2 hover:bg-muted/40 cursor-pointer space-y-0.5"
             :class="{
               'bg-accent/70': sessionStore.selectedCommitOid === c.oid
             }"
             @click="selectCommit(c)"
-            @contextmenu.prevent="copyText(c.oid)"
+            @contextmenu.prevent="openCommitMenu($event, c)"
           >
             <div class="flex items-center justify-between text-muted-foreground text-[10px]">
               <span class="font-mono text-primary font-medium">{{ c.short_oid }}</span>
@@ -629,15 +680,31 @@ const formatDate = (epochSec: number) => {
           <div class="space-y-1">
             <div class="font-medium text-foreground text-[11px] flex items-center justify-between">
               <span>变更文件 ({{ gitData.selectedCommitDetail.files.length }})</span>
+              <button
+                type="button"
+                class="px-1.5 py-0.5 rounded border text-[10px] font-normal flex items-center space-x-1 transition-colors"
+                :class="compareWithLocal
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted'"
+                :title="compareWithLocal ? '当前与工作区当前内容对比，点击改回与父提交对比' : '改为与工作区当前内容对比'"
+                @click="compareWithLocal = !compareWithLocal"
+              >
+                <FolderSync class="w-3 h-3" />
+                <span>{{ compareWithLocal ? '与本地对比中' : '与父提交对比' }}</span>
+              </button>
             </div>
+
+            <p v-if="compareWithLocal" class="text-[10px] text-muted-foreground">
+              左侧为该提交的版本，右侧为磁盘上的当前内容（含未提交改动）
+            </p>
 
             <div class="divide-y divide-border/40 border border-border/60 rounded">
               <div
                 v-for="file in gitData.selectedCommitDetail.files"
                 :key="file.path"
                 class="px-2.5 py-1.5 flex items-center justify-between hover:bg-muted/40 cursor-pointer text-[11px]"
-                @click="openCommitFileDiff(file, gitData.selectedCommitDetail.oid, false)"
-                @dblclick="openCommitFileDiff(file, gitData.selectedCommitDetail.oid, true)"
+                @click="openDetailFileDiff(file, gitData.selectedCommitDetail.oid, false)"
+                @dblclick="openDetailFileDiff(file, gitData.selectedCommitDetail.oid, true)"
               >
                 <span class="truncate max-w-sm">{{ file.path }}</span>
                 <span
@@ -657,5 +724,44 @@ const formatDate = (epochSec: number) => {
         </template>
       </div>
     </div>
+
+    <!-- 提交卡片右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="commitMenu.visible"
+        class="fixed inset-0 z-50"
+        @click="closeCommitMenu"
+        @contextmenu.prevent="closeCommitMenu"
+      >
+        <div
+          data-testid="commit-context-menu"
+          class="fixed bg-popover text-popover-foreground border border-border shadow-md rounded-md p-1 min-w-[180px] text-xs font-sans select-none"
+          :style="{ left: `${commitMenu.x}px`, top: `${commitMenu.y}px` }"
+          @click.stop
+        >
+          <div class="px-2 py-1 text-[10px] text-muted-foreground truncate border-b border-border/40 font-mono mb-1 max-w-[220px]">
+            {{ commitMenu.commit?.short_oid }} {{ commitMenu.commit?.summary }}
+          </div>
+          <button
+            type="button"
+            data-testid="compare-with-local"
+            class="w-full px-2 py-1.5 flex items-center space-x-2 text-left hover:bg-accent hover:text-accent-foreground rounded cursor-pointer transition-colors text-foreground"
+            title="把该提交里的文件与磁盘上的当前内容对比"
+            @click="compareCommitWithLocal"
+          >
+            <FolderSync class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span>与本地对比</span>
+          </button>
+          <button
+            type="button"
+            class="w-full px-2 py-1.5 flex items-center space-x-2 text-left hover:bg-accent hover:text-accent-foreground rounded cursor-pointer transition-colors text-foreground"
+            @click="copyCommitOid"
+          >
+            <Copy class="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <span>复制提交哈希</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

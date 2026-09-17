@@ -142,3 +142,77 @@ fn test_session_lifecycle_and_operations() {
     let after_close = mgr.get_repo(&session_id);
     assert!(after_close.is_err(), "Session should be closed");
 }
+
+/// 在临时目录里建一个仓库，并写入首个提交。
+fn init_test_repo(dir: &Path, file: &str, content: &str) -> (git2::Repository, git2::Oid) {
+    let repo = git2::Repository::init(dir).expect("init repo failed");
+    std::fs::write(dir.join(file), content).expect("write file failed");
+    let oid = commit_all(&repo, "c1", None);
+    (repo, oid)
+}
+
+/// 暂存工作区全部内容并提交，返回提交 oid。
+fn commit_all(repo: &git2::Repository, message: &str, parent: Option<git2::Oid>) -> git2::Oid {
+    let sig = git2::Signature::now("Test", "test@example.com").expect("signature failed");
+    let mut index = repo.index().expect("index failed");
+    index
+        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .expect("add_all failed");
+    index.write().expect("index write failed");
+    let tree = repo
+        .find_tree(index.write_tree().expect("write_tree failed"))
+        .expect("find_tree failed");
+
+    let parent_commit = parent.map(|p| repo.find_commit(p).expect("find_commit failed"));
+    let parents: Vec<&git2::Commit> = parent_commit.iter().collect();
+    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)
+        .expect("commit failed")
+}
+
+#[test]
+fn test_diff_commit_local_compares_against_working_tree() {
+    let tmp = tempfile::tempdir().expect("tempdir failed");
+    let dir = tmp.path();
+    let (repo, c1) = init_test_repo(dir, "a.txt", "v1\n");
+
+    std::fs::write(dir.join("a.txt"), "v2\n").expect("write failed");
+    let c2 = commit_all(&repo, "c2", Some(c1));
+
+    // 工作区再改一次，但不提交
+    std::fs::write(dir.join("a.txt"), "v3\n").expect("write failed");
+
+    // 与本地对比：左边是 c1 的版本，右边是磁盘上的当前内容（含未提交改动）
+    let plan = diff::diff_prepare(&repo, &format!("commit-local:{}", c1), "a.txt")
+        .expect("diff_prepare failed");
+    assert_eq!(plan.old_content.as_deref(), Some("v1\n"));
+    assert_eq!(plan.new_content.as_deref(), Some("v3\n"));
+
+    // 对照：与父提交对比时看不到未提交的 v3
+    let plan_parent = diff::diff_prepare(&repo, &format!("commit:{}", c2), "a.txt")
+        .expect("diff_prepare failed");
+    assert_eq!(plan_parent.old_content.as_deref(), Some("v1\n"));
+    assert_eq!(plan_parent.new_content.as_deref(), Some("v2\n"));
+}
+
+#[test]
+fn test_diff_commit_local_handles_missing_files() {
+    let tmp = tempfile::tempdir().expect("tempdir failed");
+    let dir = tmp.path();
+    let (repo, c1) = init_test_repo(dir, "a.txt", "v1\n");
+
+    // 本地删掉文件：右边为空，整体呈现为删除
+    std::fs::remove_file(dir.join("a.txt")).expect("remove failed");
+    let deleted = diff::diff_prepare(&repo, &format!("commit-local:{}", c1), "a.txt")
+        .expect("diff_prepare failed");
+    assert_eq!(deleted.old_content.as_deref(), Some("v1\n"));
+    assert_eq!(deleted.new_content.as_deref(), Some(""));
+    assert!(deleted.deletions > 0);
+
+    // 提交里没有、但本地新增的文件：左边为空
+    std::fs::write(dir.join("b.txt"), "new\n").expect("write failed");
+    let added = diff::diff_prepare(&repo, &format!("commit-local:{}", c1), "b.txt")
+        .expect("diff_prepare failed");
+    assert_eq!(added.old_content.as_deref(), Some(""));
+    assert_eq!(added.new_content.as_deref(), Some("new\n"));
+    assert!(added.additions > 0);
+}
