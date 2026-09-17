@@ -400,8 +400,10 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     const tabsStore = useTabsStore();
     expect(tabsStore.tabs.some((t) => t.path === 'README.md')).toBe(true);
 
-    // 3. 点击 Git 面板中的未提交变更文件打开 Diff
-    const gitPanelFile = wrapper.findAll('div').find((d) => d.text().includes('src/index.ts') && d.classes().includes('cursor-pointer'));
+    // 3. 点击 Git 面板中的未提交变更文件打开 Diff（变更树里文件行只显示文件名）
+    const gitPanelFile = wrapper
+      .findAll('[data-testid="changes-file"]')
+      .find((d) => d.text().includes('index.ts'));
     expect(gitPanelFile).toBeDefined();
     await gitPanelFile!.trigger('click');
     await flushPromises();
@@ -730,11 +732,14 @@ describe('Mini-Git End-to-End User Flow Tests', () => {
     await commitRow!.trigger('click');
     await flushPromises();
 
-    // 展开后应显示提交内的变更文件
-    expect(wrapper.text()).toContain('src/mini-git/components/GitPanel.vue');
+    // 展开后应显示提交内的变更文件：目录压缩成一行，文件名单独一行
+    expect(wrapper.text()).toContain('src\\mini-git\\components');
+    expect(wrapper.text()).toContain('GitPanel.vue');
 
     // 3. 点击该变更文件打开 Commit Diff 标签页
-    const unpushedFileRow = wrapper.findAll('div').find((d) => d.text().includes('GitPanel.vue') && d.classes().includes('cursor-pointer'));
+    const unpushedFileRow = wrapper
+      .findAll('[data-testid="changes-file"]')
+      .find((d) => d.text().includes('GitPanel.vue'));
     expect(unpushedFileRow).toBeDefined();
     await unpushedFileRow!.trigger('click');
     await flushPromises();

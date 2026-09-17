@@ -14,6 +14,8 @@ export interface RepoSessionData {
   gitPanelCollapsed: boolean;
   refsTreeWidth: number;
   commitListWidth: number;
+  changesViewMode: 'tree' | 'list';
+  collapsedChangesNodes: string[];
   lastUpdated: number;
 }
 
@@ -61,6 +63,10 @@ export const useSessionStore = defineStore('minigit-session', {
     selectedRefName: null as string | null,
     selectedCommitOid: null as string | null,
 
+    // Changes tree: directories are expanded unless explicitly collapsed
+    changesViewMode: 'tree' as 'tree' | 'list',
+    collapsedChangesNodes: new Set<string>(),
+
     // Layout
     treeWidth: 240,
     treeCollapsed: false,
@@ -94,6 +100,8 @@ export const useSessionStore = defineStore('minigit-session', {
           if (typeof data.gitPanelCollapsed === 'boolean') this.gitPanelCollapsed = data.gitPanelCollapsed;
           if (data.refsTreeWidth) this.refsTreeWidth = data.refsTreeWidth;
           if (data.commitListWidth) this.commitListWidth = data.commitListWidth;
+          this.changesViewMode = data.changesViewMode || 'tree';
+          this.collapsedChangesNodes = new Set(data.collapsedChangesNodes || []);
         } else {
           // Defaults for new repo
           this.activeGitTab = 'changes';
@@ -104,6 +112,8 @@ export const useSessionStore = defineStore('minigit-session', {
           this.selectedCommitOid = null;
           this.treeCollapsed = false;
           this.gitPanelCollapsed = false;
+          this.changesViewMode = 'tree';
+          this.collapsedChangesNodes.clear();
         }
         updateSessionLRU(repoPath);
       } catch (e) {
@@ -128,6 +138,8 @@ export const useSessionStore = defineStore('minigit-session', {
           gitPanelCollapsed: this.gitPanelCollapsed,
           refsTreeWidth: this.refsTreeWidth,
           commitListWidth: this.commitListWidth,
+          changesViewMode: this.changesViewMode,
+          collapsedChangesNodes: Array.from(this.collapsedChangesNodes),
           lastUpdated: Date.now(),
         };
         localStorage.setItem(getSessionKey(this.currentRepoPath), JSON.stringify(data));
@@ -166,6 +178,40 @@ export const useSessionStore = defineStore('minigit-session', {
         next.delete(path);
       }
       this.expandedTreeNodes = next;
+      this.saveSession();
+    },
+
+    toggleChangesNode(id: string) {
+      const next = new Set(this.collapsedChangesNodes);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      this.collapsedChangesNodes = next;
+      this.saveSession();
+    },
+
+    setChangesNodesCollapsed(ids: string[], collapsed: boolean) {
+      const next = new Set(this.collapsedChangesNodes);
+      for (const id of ids) {
+        if (collapsed) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      this.collapsedChangesNodes = next;
+      this.saveSession();
+    },
+
+    expandAllChangesNodes() {
+      this.collapsedChangesNodes = new Set();
+      this.saveSession();
+    },
+
+    setChangesViewMode(mode: 'tree' | 'list') {
+      this.changesViewMode = mode;
       this.saveSession();
     },
 

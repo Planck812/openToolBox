@@ -13,11 +13,17 @@ import {
   CheckCircle2,
   ArrowUp,
   ArrowUpCircle,
+  ListTree,
+  List,
+  ChevronsDownUp,
+  ChevronsUpDown,
 } from 'lucide-vue-next';
 import dayjs from 'dayjs';
 import { useGitDataStore } from '../stores/gitdata';
 import { useSessionStore } from '../stores/session';
 import { useTabsStore } from '../stores/tabs';
+import { buildChangesTree, collectDirIds } from '../lib/changesTree';
+import ChangesTree from './ChangesTree.vue';
 import type { ChangedFile, CommitSummary } from '@/lib/ipc/bindings';
 import type { RefTreeNode } from '../lib/refsGrouping';
 
@@ -60,6 +66,25 @@ const allChangedFiles = computed(() => {
   if (!st) return [];
   return [...st.conflicted, ...st.staged, ...st.unstaged, ...st.untracked];
 });
+
+const changeGroups = computed<Array<[string, ChangedFile[]]>>(() => {
+  const st = gitData.workingStatus;
+  if (!st) return [];
+  return [
+    ['conflicted', st.conflicted],
+    ['staged', st.staged],
+    ['unstaged', st.unstaged],
+    ['untracked', st.untracked],
+  ];
+});
+
+const collapseAllChanges = () => {
+  const ids = changeGroups.value.flatMap(([key, files]) => collectDirIds(buildChangesTree(files, key)));
+  for (const [oid, files] of gitData.unpushedFiles) {
+    ids.push(...collectDirIds(buildChangesTree(files, `commit:${oid}`)));
+  }
+  sessionStore.setChangesNodesCollapsed(ids, true);
+};
 
 const openChangedFileDiff = (file: ChangedFile, isPinned: boolean) => {
   tabsStore.openTab({
@@ -230,15 +255,47 @@ const formatDate = (epochSec: number) => {
             <span>{{ gitData.unpushedTotal }} 个已提交未推送</span>
           </span>
         </div>
-        <button
-          v-if="gitData.totalChanges > 0"
-          type="button"
-          class="hover:underline flex items-center space-x-1"
-          @click="copyAllChangedPaths"
-        >
-          <Copy class="w-3 h-3" />
-          <span>复制全部路径</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          <button
+            type="button"
+            class="p-0.5 rounded hover:bg-muted hover:text-foreground transition-colors"
+            :class="{ 'bg-muted text-foreground': sessionStore.changesViewMode === 'tree' }"
+            :title="sessionStore.changesViewMode === 'tree' ? '切换为列表视图' : '切换为目录树视图'"
+            @click="sessionStore.setChangesViewMode(sessionStore.changesViewMode === 'tree' ? 'list' : 'tree')"
+          >
+            <ListTree v-if="sessionStore.changesViewMode === 'tree'" class="w-3.5 h-3.5" />
+            <List v-else class="w-3.5 h-3.5" />
+          </button>
+
+          <template v-if="sessionStore.changesViewMode === 'tree'">
+            <button
+              type="button"
+              class="p-0.5 rounded hover:bg-muted hover:text-foreground transition-colors"
+              title="全部展开"
+              @click="sessionStore.expandAllChangesNodes"
+            >
+              <ChevronsUpDown class="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              class="p-0.5 rounded hover:bg-muted hover:text-foreground transition-colors"
+              title="全部折叠"
+              @click="collapseAllChanges"
+            >
+              <ChevronsDownUp class="w-3.5 h-3.5" />
+            </button>
+          </template>
+
+          <button
+            v-if="gitData.totalChanges > 0"
+            type="button"
+            class="hover:underline flex items-center space-x-1"
+            @click="copyAllChangedPaths"
+          >
+            <Copy class="w-3 h-3" />
+            <span>复制全部路径</span>
+          </button>
+        </div>
       </div>
 
       <!-- Changes List -->
@@ -337,29 +394,13 @@ const formatDate = (epochSec: number) => {
                 <div v-else-if="unpushedFilesOf(commit.oid)?.length === 0" class="text-muted-foreground/60 italic text-[10px]">
                   (无文件变动或为空提交)
                 </div>
-                <template v-else>
-                  <div
-                    v-for="file in unpushedFilesOf(commit.oid)"
-                    :key="file.path"
-                    class="flex items-center justify-between px-1.5 py-0.5 rounded hover:bg-muted/60 cursor-pointer transition-colors"
-                    title="点击查看此文件改动"
-                    @click="openCommitFileDiff(file, commit.oid, false)"
-                    @dblclick="openCommitFileDiff(file, commit.oid, true)"
-                  >
-                    <span class="truncate text-foreground/90 flex-1">{{ file.path }}</span>
-                    <span
-                      class="font-bold text-[10px] px-1 rounded flex-shrink-0 ml-2"
-                      :class="{
-                        'text-emerald-500': file.status === 'A',
-                        'text-amber-500': file.status === 'M',
-                        'text-rose-500': file.status === 'D',
-                        'text-sky-500': file.status === 'R',
-                      }"
-                    >
-                      {{ file.status }}
-                    </span>
-                  </div>
-                </template>
+                <ChangesTree
+                  v-else
+                  :files="unpushedFilesOf(commit.oid) || []"
+                  :group-key="`commit:${commit.oid}`"
+                  fallback-status="M"
+                  @open="(file, pinned) => openCommitFileDiff(file, commit.oid, pinned)"
+                />
               </div>
             </div>
 
@@ -379,18 +420,13 @@ const formatDate = (epochSec: number) => {
             <ChevronDown v-if="!conflictedCollapsed" class="w-3.5 h-3.5" />
             <ChevronRight v-else class="w-3.5 h-3.5" />
           </div>
-          <div v-if="!conflictedCollapsed" class="divide-y divide-border/40">
-            <div
-              v-for="file in gitData.workingStatus.conflicted"
-              :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
-              @click="openChangedFileDiff(file, false)"
-              @dblclick="openChangedFileDiff(file, true)"
-            >
-              <span class="truncate">{{ file.path }}</span>
-              <span class="text-destructive font-bold">C</span>
-            </div>
-          </div>
+          <ChangesTree
+            v-if="!conflictedCollapsed"
+            :files="gitData.workingStatus.conflicted"
+            group-key="conflicted"
+            fallback-status="C"
+            @open="openChangedFileDiff"
+          />
         </div>
 
         <!-- 2. Staged -->
@@ -403,18 +439,13 @@ const formatDate = (epochSec: number) => {
             <ChevronDown v-if="!stagedCollapsed" class="w-3.5 h-3.5" />
             <ChevronRight v-else class="w-3.5 h-3.5" />
           </div>
-          <div v-if="!stagedCollapsed" class="divide-y divide-border/40">
-            <div
-              v-for="file in gitData.workingStatus.staged"
-              :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
-              @click="openChangedFileDiff(file, false)"
-              @dblclick="openChangedFileDiff(file, true)"
-            >
-              <span class="truncate">{{ file.path }}</span>
-              <span class="text-emerald-500 font-bold">{{ file.status || 'A' }}</span>
-            </div>
-          </div>
+          <ChangesTree
+            v-if="!stagedCollapsed"
+            :files="gitData.workingStatus.staged"
+            group-key="staged"
+            fallback-status="A"
+            @open="openChangedFileDiff"
+          />
         </div>
 
         <!-- 3. Unstaged -->
@@ -427,18 +458,13 @@ const formatDate = (epochSec: number) => {
             <ChevronDown v-if="!unstagedCollapsed" class="w-3.5 h-3.5" />
             <ChevronRight v-else class="w-3.5 h-3.5" />
           </div>
-          <div v-if="!unstagedCollapsed" class="divide-y divide-border/40">
-            <div
-              v-for="file in gitData.workingStatus.unstaged"
-              :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
-              @click="openChangedFileDiff(file, false)"
-              @dblclick="openChangedFileDiff(file, true)"
-            >
-              <span class="truncate">{{ file.path }}</span>
-              <span class="text-amber-500 font-bold">{{ file.status || 'M' }}</span>
-            </div>
-          </div>
+          <ChangesTree
+            v-if="!unstagedCollapsed"
+            :files="gitData.workingStatus.unstaged"
+            group-key="unstaged"
+            fallback-status="M"
+            @open="openChangedFileDiff"
+          />
         </div>
 
         <!-- 4. Untracked -->
@@ -451,18 +477,13 @@ const formatDate = (epochSec: number) => {
             <ChevronDown v-if="!untrackedCollapsed" class="w-3.5 h-3.5" />
             <ChevronRight v-else class="w-3.5 h-3.5" />
           </div>
-          <div v-if="!untrackedCollapsed" class="divide-y divide-border/40">
-            <div
-              v-for="file in gitData.workingStatus.untracked"
-              :key="file.path"
-              class="px-2 py-1 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
-              @click="openChangedFileDiff(file, false)"
-              @dblclick="openChangedFileDiff(file, true)"
-            >
-              <span class="truncate">{{ file.path }}</span>
-              <span class="text-sky-500 font-bold">U</span>
-            </div>
-          </div>
+          <ChangesTree
+            v-if="!untrackedCollapsed"
+            :files="gitData.workingStatus.untracked"
+            group-key="untracked"
+            fallback-status="U"
+            @open="openChangedFileDiff"
+          />
         </div>
       </div>
     </div>
